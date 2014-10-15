@@ -254,6 +254,72 @@ footer {
 	}
 }
 
+/* home.html */
+.home {
+
+	.nav-pills a i.fa {
+		float: right;
+		position: relative;
+		top: 3px;
+	}
+	.widget-box {
+		height: 214px;
+		.wrapColumn {
+			padding-left: 0px;
+		}
+		.btn-block {
+			margin-bottom:15px;
+		}
+		.searchSpacer {
+			height:45px;
+		}
+	}
+}
+
+.view_dataset {
+	p.title {
+		.font-size(1);
+		padding-bottom: 5px;
+	}
+	.collapsable .panel-heading {
+		cursor: pointer;
+	}
+	.panel-primary {
+		background: transparent;
+		box-shadow: none;
+		border: 1px solid transparent;
+		i.fa {
+			float: right;
+		}
+		i.collapsePanel {
+			margin-right: 5px;
+			display: block;
+			position: relative;
+			top: 1px;
+			float: left;
+		}
+	}
+	.panel-body {
+		padding-top: 5px;
+		padding-left: 0px;
+	}
+	.checkbox label {
+		.font-size(0.9);
+	}
+	.nav-left {
+		float: left;
+	}
+	.nav-right {
+		float: right;
+	}
+	#genomeBrowser {
+		margin-top: 20px;
+	}
+	.table {
+		margin-bottom: 0px;
+	}
+}
+
 /* MAAT ELEMENTEN */
 
 // stappen
@@ -317,12 +383,55 @@ ul.steps-round li a {
 	h2, p {
 		padding-bottom: 20px;
 	}
+	h2 a {
+		color: #fff;
+		float: right;
+		position: relative;
+		top: 1px;
+	}
 	.progress {
 		margin: 0px
+	}
+	p.listing {
+		padding-bottom: 0px;
+		line-height: 25px;
+		span {
+			width: 25%;
+			display: inline-block;
+		}
+	}
+	p.listing-half {
+		span {
+			width: 50%;
+		}
+	}
+	.btn-block { 
+		text-align: left;
+		.fa {
+			position: relative;
+			top: 1px;
+		}
+	}
+	.form-group {
+		margin-bottom: 10px;
+	}
+	.btn-primary:hover {
+		border: 1px solid transparent;
+	}
+	.form-horizontal {
+		padding: 0px 20px 0px 20px;
 	}
 }
 
 /* BOOTSTRAP OVERSCHRIJVEN */
+
+.panel-heading {
+	padding: 8px 8px 10px 8px;
+}
+
+.bootstrap-select {
+	height: 32px;
+}
 
 .modal-header {
 	background: @dark;
@@ -332,6 +441,7 @@ ul.steps-round li a {
 
 .modal {
 	z-index: 10000;
+	
 }
 
 .tooltip {
@@ -445,9 +555,13 @@ blockquote {
 	border: none;
 	background: @dark;
 	font-weight: bold;
-	padding: 10px 10px 8px 10px;
+	padding: 6px;
 	color: #fff;
-	.font-size(1);
+	.font-size(0.9);
+}
+
+.table>thead>tr>th:last-child {
+	border-right: 1px solid @dark;
 }
 
 .table-hover>tbody>tr:hover>td, .table-hover>tbody>tr:hover>th {
@@ -493,6 +607,11 @@ blockquote {
 
 .nav-pills>li>a {
 	border-radius: 0px;
+	.font-size(1);
+}
+
+.nav-pills>li>a {
+	padding: 6px 10px 6px 10px;;
 }
 
 .alert {
@@ -507,6 +626,13 @@ blockquote {
 .alert>p {
 	padding: 0px;
 	.font-size(1);
+}
+
+.nav-pills a i.fa {
+
+	position: relative;
+	margin-right: 4px;
+	top: 1px;
 }
 
 .panel-heading {
