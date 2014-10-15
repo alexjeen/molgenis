@@ -209,12 +209,89 @@
 				  			<h1>Custom elements</h1>
 				  			
 				  			<p>Dit zijn de elementen waar geen Bootstrap alternatief voor bestaat:</p>
-				  		
-				  			<h1>Bootstrap elements</h1>
+				  			
+				  			<h2>Stappen</h2>
+				  			
+				  			<div class="row">
+				  				
+				  				<div class="col-md-6">
+				  				
+						  			<ul class="steps clearfix">
+						  				<li class="active"><a>Step 1</a></li>
+						  				<li><a href="#">Step 2</a></li>
+						  				<li><a href="#">Step 3</a></li>			
+						  			</ul>
+					  			
+				  				</div>	
+				  				
+				  				<div class="col-md-6">
+					  			
+						  			<ul class="steps steps-round clearfix">
+						  				<li class="active"><a>1</a></li>
+						  				<li><a href="#">2</a></li>
+						  				<li><a href="#">3</a></li>			
+						  				<li><a href="#">4</a></li>			
+						  				<li><a href="#">5</a></li>									  										  				
+						  			</ul>				  
+					  			
+				  				</div>			
+					  		
+				  			</div>
+				  			
+				  			<h2>Widget box</h2>
+				  			
+				  			<p>De widget box zal altijd de volledige gebruikte van de parent container.</p>
+				  			
+				  			<div class="row">
+				  				<div class="col-md-6">
+				  					<div class="widget-box">
+				  						<div class="widget-inner">
+					  						<h2>Widget box</h2>
+					  						<p>Je kan de widget voor van alles gebruiken, bijvoorbeeld een "search box".</p>
+																  						
+											<form class="form-inline" role="form">
+											
+											  <div class="form-group">
+											    <div class="input-group">
+											      <div class="input-group-addon">
+												      <i class="fa fa-search"></i>
+												      
+											      </div>
+											      <input class="form-control" type="text" placeholder="Search for something..">
+											    </div>
+											  </div>
+											 
+											</form>					  						
+																  						
+					  					</div>	
+				  					</div>
+				  				
+				  				</div>
+				  			</div>
+				  			
+				  			<div class="row">
+				  				<div class="col-md-4">
+				  					<div class="widget-box">
+				  						<div class="widget-inner">
+					  						<h2>Widget box</h2>
+					  						<p>Of de voortgang weer te geven van een actie in het rechterscherm:</p>
+																  						
+											<div class="progress progress-striped active">
+                <div class="progress-bar" style="width: 45%"> 60%</div>
+              </div>			  						
+																  						
+					  					</div>	
+				  					</div>
+				  				
+				  				</div>
+				  			</div>				  			
+				  			
+				  			
+				  			<h1>Bootstrap elementen</h1>
 				  			
 				  			<p>Hieronder staan alle Bootstrap elementen.</p>
 
-	<div id="bootstrap_TEST">
+				  			<div id="bootstrap_TEST">
       <!-- Buttons
       ================================================== -->
       <div class="bs-docs-section">
@@ -602,7 +679,7 @@
                   <div class="form-group">
                     <div class="col-lg-10 col-lg-offset-2">
                       <button class="btn btn-default">Cancel</button>
-                      <button type="submit" class="btn btn-primary">Submit</button>
+                      <button type="submit" class="btn btn-primary"><i class="fa fa-caret-right"></i> Submit</button>
                     </div>
                   </div>
                 </fieldset>
@@ -5034,6 +5111,61 @@
     <script src="js/bootstrap.min.js"></script>
     <script src="js/plugins.js"></script>    
     <script src="js/theme.js"></script>
+    
+    <!-- DIT HIERONDER KAN VERWIJDERD WORDEN, IS CODE VOOR DE PREVIEW VAN DE ELEMENTEN -->
+    
+    <style type="text/css">
+#banner{min-height:300px;border-bottom:none}.bs-docs-section{margin-top:8em}.bs-component{position:relative}.bs-component .modal{position:relative;top:auto;right:auto;left:auto;bottom:auto;z-index:1;display:block}.bs-component .modal-dialog{width:90%}.bs-component .popover{position:relative;display:inline-block;width:220px;margin:20px}#source-button{position:absolute;top:0;right:0;z-index:100;font-weight:bold}  
+    </style>
+    
+    <script>
+    
+    (function(){
+
+
+  var $button = $("<div id='source-button' class='btn btn-primary btn-xs'>&lt; &gt;</div>").click(function(){
+    var html = $(this).parent().html();
+    html = cleanSource(html);
+    $("#source-modal pre").text(html);
+    $("#source-modal").modal();
+  });
+
+  $('.bs-component [data-toggle="popover"]').popover();
+  $('.bs-component [data-toggle="tooltip"]').tooltip();
+
+  $(".bs-component").hover(function(){
+    $(this).append($button);
+    $button.show();
+  }, function(){
+    $button.hide();
+  });
+
+  function cleanSource(html) {
+    var lines = html.split(/\n/);
+
+    lines.shift();
+    lines.splice(-1, 1);
+
+    var indentSize = lines[0].length - lines[0].trim().length,
+        re = new RegExp(" {" + indentSize + "}");
+
+    lines = lines.map(function(line){
+      if (line.match(re)) {
+        line = line.substring(indentSize);
+      }
+
+      return line;
+    });
+
+    lines = lines.join("\n");
+
+    return lines;
+  }
+
+})();
+    </script>
+    
+    <!-- TOT EN MET HIER VERWIJDEREN -->
     
   </body>
 </html>
