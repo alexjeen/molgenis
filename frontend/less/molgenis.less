@@ -39,7 +39,7 @@ html {
 }
 
 body, html {
-	height: 100%;
+	min-height: 100%;
 }
 
 body {
@@ -233,6 +233,21 @@ body {
 			}
 		}
 	}
+	#fullscreen-toggle {
+
+		line-height: 28px;
+		color: @dark;
+		margin-top: 4px;
+		text-align: center;
+		height: 28px;
+		display: block;
+		float: right;
+		.fa {
+			padding-right: 5px;
+			position: relative;
+			top: 1px;
+		}
+	}
 	.content {
 		margin-bottom: 26px;
 		.box-shadow(0px 0px 20px, 10%);
@@ -318,6 +333,55 @@ footer {
 	.table {
 		margin-bottom: 0px;
 	}
+	#graph-area {
+		margin-top: 20px;
+	}
+	.has-btn-group span {
+		float: left;
+		display: block;
+		margin-right: 20px;
+	}
+	.has-btn-group .btn-group {
+		position: relative;
+		top: -4px;
+	}	
+	.step-wrapper {
+		float: right;
+		span {
+			float: left;
+			margin-right: 10px;
+			position: relative;
+			top: 7px;
+			.font-size(1);
+		}
+		ul.steps {
+			float: right;
+		}
+	}
+	.nav-right {
+		.fa-remove {
+			font-size: 12px;
+			position: relative;
+			top: 0px;
+			margin-right: 5px
+		}
+	}
+	.has-tools td {
+		height: 24px;
+		line-height: 24px;
+	}
+	td .tools {
+		height: 24px;
+		visibility: hidden;
+		a {
+			line-height: 24px;
+			font-size: 22px;
+			margin-right: 5px;
+		}
+		a:last-child {
+			margin-right: 0px;
+		}
+	}
 }
 
 /* MAAT ELEMENTEN */
@@ -368,6 +432,7 @@ ul.steps-round li a {
 	border-radius: 35px;
 	text-align: center;
 	width: 35px;
+	margin-right: 10px;
 	padding: 0px;
 }
 

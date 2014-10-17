@@ -1,3 +1,4 @@
+var is_fullscreen = false;
 $(function(){
 	// menu logica
 	$('.mainNav nav ul > li').hover(
@@ -35,4 +36,26 @@ $(function(){
 		});
 		return false;
 	});
+	$('#fullscreen-toggle').click(function(){
+		if(is_fullscreen) {
+
+			$(this).find('.fa').addClass('fa-expand').removeClass('fa-compress');
+			$('.mainContent > div').addClass('container').removeClass('container-fluid');			
+			
+		}
+		else {
+			$(this).find('.fa').removeClass('fa-expand').addClass('fa-compress');
+			$('.mainContent > div').removeClass('container').addClass('container-fluid');
+		}
+		is_fullscreen = !is_fullscreen;
+		return false;
+	});
+	$('.has-tools tr td').hover(
+		function(){
+			$(this).parents('tr').find('.tools').css('visibility', 'visible');
+		},
+		function(){
+			$(this).parents('tr').find('.tools').css('visibility', 'hidden');
+		}
+	);
 });
