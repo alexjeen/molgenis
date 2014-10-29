@@ -39,17 +39,16 @@
 	  		<div class="container">
 			  	<div class="row">
 			  		<div class="col-md-12">
-			  			<!-- bv. bij een groot logo doe je ipv de klasse small big, dat veranderd de font size -->
-			  			<a href="#" class="logo logo-small">OMX</a>
+			  			<a href="#" class="logo">OMX</a>
 			  			<nav>
 			  				<ul>
 			  					<li class="collect">
 			  						<a href="#">
 				  						Collect
 			  						</a>	  
-			  						<div class="submenu">
+			  						<div class="submenu big-submenu">
 			  							<div class="row">
-			  								<div class="col-md-6">
+			  								<div class="col-md-4">
 			  									<ul>
 			  										<li><strong>Graphs</strong></li>
 			  										<li><a href="#">Item</a></li>
@@ -63,7 +62,7 @@
 			  										<li><a href="#">Item</a></li>	
 			  									</ul>			  									
 			  								</div>
-			  								<div class="col-md-6">
+			  								<div class="col-md-4">
 			  									<ul>
 			  										<li><strong>Graphs</strong></li>
 			  										<li><a href="#">Item</a></li>
@@ -77,6 +76,20 @@
 			  										<li><a href="#">Item</a></li>	
 			  									</ul>	
 			  								</div>
+			  								<div class="col-md-4">
+			  									<ul>
+			  										<li><strong>Graphs</strong></li>
+			  										<li><a href="#">Item</a></li>
+			  										<li><a href="#">Item</a></li>
+			  										<li><a href="#">Item</a></li>
+			  										<li><a href="#">Item</a></li>
+			  										<li><a href="#">Item</a></li>	
+			  									</ul>
+			  									<ul>
+			  										<li><strong>Graphs</strong></li>
+			  										<li><a href="#">Item</a></li>	
+			  									</ul>	
+			  								</div>			  								
 			  							</div><!-- / row -->
 			  						</div><!-- / submenu -->						
 			  					</li>
@@ -209,6 +222,54 @@
 				  			<h1>Custom elements</h1>
 				  			
 				  			<p>Dit zijn de elementen waar geen Bootstrap alternatief voor bestaat:</p>
+				  			
+				  			<h2>jQuery Select2</h2>
+				  			        
+				  			<p>Zie hieronder bij de formulier elementen.</p>        
+				  			        				  			
+				  			<h2>jQuery FancyTree</h2>
+				  			
+				  			<div id="fancytree">
+					  			
+<ul>
+			<li class="folder expanded">Standard nodes, modified by extra CSS rules
+				<ul>
+					<li id="node_4.1" data-iconclass="fa fa-file-excel-o">Je kan ook FA klasses gebruiken (zie voorbeeld)
+					<li id="node_4.2">Sub-item 4.2
+				</ul>
+
+			<li class="folder expanded">Override CSS style per node
+				<ul>
+					<li class="custom1">class="custom1": Additional classes are copied over to outer &lt;span>
+					<li class="folder custom1">class="custom1": Additional classes are copied over to outer &lt;span>
+				</ul>
+
+			<li class="folder expanded">Use 'data-NAME' attributes to define additional data
+				<ul>
+					<li>Node with standard CSS, but custom icon
+					<li>Folder with standard CSS but custom icon
+					<li>'iconclass' is directly added to the image &lt;span>, so jQuery stock icons may be used
+				</ul>
+
+			<li class="folder expanded">Use 'data-json' attribute to define additional data
+				<ul>
+					<li>Node with standard CSS, but custom 'data-icon'
+				</ul>
+
+			<li class="folder expanded">Use render callback
+				<ul>
+					<li id="renderNode1" data-cstrender="true">Node hat will be handled by 'render' calback
+				</ul>
+
+		</ul>					  			
+				  			</div>
+				  			
+				  			
+				  			<h2>jqEditRangeSlider</h2>
+				  			
+				  			<p>Verschrikkelijk lelijk, maar zeer functioneel:</p>
+				  			
+				  			<div class="sliderContainer"><div id="editSlider"></div></div>
 				  			
 				  			<h2>Stappen</h2>
 				  			
@@ -5087,7 +5148,7 @@
   	<footer>
   		<div class="container">
   			<div class="row">
-  				<div class="col-md-3">
+  				<div class="col-md-3 visible-lg-block">
   					OMX IBD Research Portal, &copy; 2014
   				</div><!-- / col -->
   				<div class="col-md-9">
@@ -5116,6 +5177,7 @@
     
     <style type="text/css">
 #banner{min-height:300px;border-bottom:none}.bs-docs-section{margin-top:8em}.bs-component{position:relative}.bs-component .modal{position:relative;top:auto;right:auto;left:auto;bottom:auto;z-index:1;display:block}.bs-component .modal-dialog{width:90%}.bs-component .popover{position:relative;display:inline-block;width:220px;margin:20px}#source-button{position:absolute;top:0;right:0;z-index:100;font-weight:bold}  
+.modal-backdrop { display: none; }
     </style>
     
     <script>

@@ -12,9 +12,7 @@ $(function(){
 		}
 	);
 	// custom selects ed
-	$('form select').selectpicker({
-		style: 'btn-primary'
-	});	
+	$("select").select2();
 	$('form input').iCheck({
 		checkboxClass: 'icheckbox_square-blue',
 		radioClass: 'iradio_square-blue'
@@ -58,4 +56,8 @@ $(function(){
 			$(this).parents('tr').find('.tools').css('visibility', 'hidden');
 		}
 	);
+	$("#editSlider").editRangeSlider();
+	$("#fancytree").fancytree({
+		
+	});
 });
