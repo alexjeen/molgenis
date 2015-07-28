@@ -2,8 +2,6 @@ package org.molgenis.data;
 
 import java.util.List;
 
-import org.springframework.data.domain.Sort;
-
 /**
  * Definition of a query
  */
@@ -16,7 +14,9 @@ public interface Query extends Iterable<Entity>
 	 */
 	Long count();
 
-	<E extends Entity> Iterable<E> findAll(Class<E> klazz);
+	Iterable<Entity> findAll();
+
+	Entity findOne();
 
 	/**
 	 * Filtering rules, seperated by QueryRule.AND and QueryRule.OR clauses
@@ -48,30 +48,46 @@ public interface Query extends Iterable<Entity>
 	 */
 	Query search(String field, String searchTerms);
 
+	/**
+	 * Occur operator 'or'. Example usage: query.eq("field0", "val0").or().eq("field1", "val1")
+	 */
 	Query or();
 
+	/**
+	 * Occur operator 'and'. Example usage: query.eq("field0", "val0").and().eq("field1", "val1")
+	 */
 	Query and();
 
 	/**
-	 * Deprecated, replaced by search(field, searchTerms)
+	 * Occur operator 'not'. Example usage: query.not().eq("field0", "val0")
+	 */
+	Query not();
+
+	/**
 	 * 
 	 * @param field
 	 * @param value
 	 * @return
 	 */
-	@Deprecated
-	Query like(String field, Object value);
+	Query like(String field, String value);
 
 	/**
 	 * 
 	 * @param field
 	 * @param value
-	 *            value, or id for references
+	 *            categorical/xref: entity or entity id; mref: entity iterable or id iterable; else: value
 	 * @return
 	 */
 	Query eq(String field, Object value);
 
-	Query in(String field, Iterable<?> objectIterator);
+	/**
+	 * 
+	 * @param field
+	 * @param values
+	 *            ids or entities
+	 * @return
+	 */
+	Query in(String field, Iterable<?> values);
 
 	/**
 	 * Greater than
@@ -106,7 +122,7 @@ public interface Query extends Iterable<Entity>
 	Query unnestAll();
 
 	/**
-	 * Range (excluding smaller and bigger)
+	 * Range (including smaller and bigger)
 	 */
 	Query rng(String field, Object smaller, Object bigger);
 
@@ -114,7 +130,7 @@ public interface Query extends Iterable<Entity>
 
 	Query offset(int offset);
 
-	Query sort(Sort.Direction direction, String... fields);
+	Sort sort();
 
 	Query sort(Sort sort);
 }

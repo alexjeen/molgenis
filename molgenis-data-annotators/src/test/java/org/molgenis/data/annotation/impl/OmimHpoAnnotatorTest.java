@@ -16,80 +16,30 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
-import org.molgenis.MolgenisFieldTypes;
-import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
-import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.Entity;
-import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.annotation.AnnotationService;
 import org.molgenis.data.annotation.impl.datastructures.HGNCLocations;
 import org.molgenis.data.annotation.provider.HgncLocationsProvider;
 import org.molgenis.data.annotation.provider.HpoMappingProvider;
 import org.molgenis.data.annotation.provider.OmimMorbidMapProvider;
+import org.molgenis.data.annotation.provider.UrlPinger;
+import org.molgenis.data.annotation.AbstractAnnotatorTest;
 import org.molgenis.data.support.MapEntity;
+import org.molgenis.data.vcf.VcfRepository;
+import org.molgenis.framework.server.MolgenisSettings;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class OmimHpoAnnotatorTest
+public class OmimHpoAnnotatorTest extends AbstractAnnotatorTest
 {
-	private EntityMetaData metaDataCanAnnotate;
-	private EntityMetaData metaDataCantAnnotate;
-	private OmimHpoAnnotator annotator;
-	private AttributeMetaData attributeMetaDataChrom;
-	private AttributeMetaData attributeMetaDataPos;
-	private AttributeMetaData attributeMetaDataCantAnnotateFeature;
-	private AttributeMetaData attributeMetaDataCantAnnotateChrom;
-	private AttributeMetaData attributeMetaDataCantAnnotatePos;
-	private Entity entity;
-	private ArrayList<Entity> input;
-
 	@BeforeMethod
 	public void beforeMethod() throws IOException
 	{
 		AnnotationService annotationService = mock(AnnotationService.class);
 
-		metaDataCanAnnotate = mock(EntityMetaData.class);
+		entity.set(VcfRepository.CHROM, "11");
+		entity.set(VcfRepository.POS, new Long(19207841));
 
-		attributeMetaDataChrom = mock(AttributeMetaData.class);
-		attributeMetaDataPos = mock(AttributeMetaData.class);
-
-		when(attributeMetaDataChrom.getName()).thenReturn(OmimHpoAnnotator.CHROMOSOME);
-		when(attributeMetaDataPos.getName()).thenReturn(OmimHpoAnnotator.POSITION);
-
-		when(attributeMetaDataChrom.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.STRING.toString().toLowerCase()));
-		when(attributeMetaDataPos.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.LONG.toString().toLowerCase()));
-
-		when(metaDataCanAnnotate.getAttribute(OmimHpoAnnotator.CHROMOSOME)).thenReturn(attributeMetaDataChrom);
-		when(metaDataCanAnnotate.getAttribute(OmimHpoAnnotator.POSITION)).thenReturn(attributeMetaDataPos);
-
-		metaDataCantAnnotate = mock(EntityMetaData.class);
-		attributeMetaDataCantAnnotateFeature = mock(AttributeMetaData.class);
-
-		when(attributeMetaDataCantAnnotateFeature.getName()).thenReturn("otherID");
-		when(attributeMetaDataCantAnnotateFeature.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.STRING.toString().toLowerCase()));
-
-		attributeMetaDataCantAnnotateChrom = mock(AttributeMetaData.class);
-		when(attributeMetaDataCantAnnotateChrom.getName()).thenReturn(OmimHpoAnnotator.CHROMOSOME);
-		when(attributeMetaDataCantAnnotateFeature.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.INT.toString().toLowerCase()));
-
-		attributeMetaDataCantAnnotatePos = mock(AttributeMetaData.class);
-		when(attributeMetaDataCantAnnotatePos.getName()).thenReturn(OmimHpoAnnotator.POSITION);
-		when(attributeMetaDataCantAnnotatePos.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.STRING.toString().toLowerCase()));
-
-		when(metaDataCantAnnotate.getAttribute(OmimHpoAnnotator.CHROMOSOME)).thenReturn(attributeMetaDataChrom);
-		when(metaDataCantAnnotate.getAttribute(OmimHpoAnnotator.POSITION)).thenReturn(attributeMetaDataCantAnnotatePos);
-
-		entity = mock(Entity.class);
-
-		when(entity.getString(OmimHpoAnnotator.CHROMOSOME)).thenReturn("11");
-		when(entity.getLong(OmimHpoAnnotator.POSITION)).thenReturn(new Long(19207841));
-
-		input = new ArrayList<Entity>();
 		input.add(entity);
 
 		String morbidMapData = "3-M syndrome 1, 273750 (3)|CUL7|609577|6p21.1";
@@ -132,6 +82,7 @@ public class OmimHpoAnnotatorTest
 				+ "OMIM:273750	CUL7	9820	HP:0001382	Joint hypermobility\r\n"
 				+ "OMIM:273750	CUL7	9820	HP:0009237	Short 5th finger\r\n"
 				+ "OMIM:273750	CUL7	9820	HP:0003100	Slender long bone";
+		
 		HpoMappingProvider hpoMappingProvider = mock(HpoMappingProvider.class);
 		when(hpoMappingProvider.getHpoMapping()).thenReturn(new StringReader(hpoMappingData));
 
@@ -140,8 +91,15 @@ public class OmimHpoAnnotatorTest
 				19207841l - 10, 19207841l + 10, "11"));
 		when(hgncLocationsProvider.getHgncLocations()).thenReturn(hgncLocations);
 
+		UrlPinger urlPinger = mock(UrlPinger.class);
+		MolgenisSettings molgenisSettings = mock(MolgenisSettings.class);
+		when(molgenisSettings.getProperty(HpoMappingProvider.KEY_HPO_MAPPING, "")).thenReturn("testUrl1");
+		when(molgenisSettings.getProperty(HgncLocationsProvider.KEY_HGNC_LOCATIONS_VALUE, "")).thenReturn("testUrl2");
+		when(urlPinger.ping("testUrl1", 500)).thenReturn(true);
+		when(urlPinger.ping("testUrl2", 500)).thenReturn(true);
+		
 		annotator = new OmimHpoAnnotator(annotationService, omimMorbidMapProvider, hgncLocationsProvider,
-				hpoMappingProvider);
+				hpoMappingProvider, molgenisSettings, urlPinger);
 	}
 
 	@Test
@@ -185,7 +143,7 @@ public class OmimHpoAnnotatorTest
 
 		expectedList.add(expectedEntity);
 
-		Iterator<Entity> results = annotator.annotate(input.iterator());
+		Iterator<Entity> results = annotator.annotate(input);
 
 		Entity resultEntity = results.next();
 
@@ -213,17 +171,5 @@ public class OmimHpoAnnotatorTest
 				expectedEntity.get(OmimHpoAnnotator.HPO_DISEASE_DATABASE_ENTRY));
 		assertEquals(resultEntity.get(OmimHpoAnnotator.HPO_ENTREZ_ID),
 				expectedEntity.get(OmimHpoAnnotator.HPO_ENTREZ_ID));
-	}
-
-	@Test
-	public void canAnnotateTrueTest()
-	{
-		assertEquals(annotator.canAnnotate(metaDataCanAnnotate), true);
-	}
-
-	@Test
-	public void canAnnotateFalseTest()
-	{
-		assertEquals(annotator.canAnnotate(metaDataCantAnnotate), false);
 	}
 }

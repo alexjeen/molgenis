@@ -7,9 +7,32 @@ package org.molgenis.data;
 public interface EntityMetaData
 {
 	/**
-	 * Every EntityMetaData has a unique name
+	 * Gets the package.
+	 * 
+	 * @return
+	 */
+	Package getPackage();
+
+	/**
+	 * Gets the fully qualified entity name.
+	 * 
+	 * @return
 	 */
 	String getName();
+
+	/**
+	 * Gets the name of the entity without the trailing packagename
+	 * 
+	 * @return
+	 */
+	String getSimpleName();
+
+	/**
+	 * The name of the backend where the entities of this type are stored
+	 * 
+	 * @return
+	 */
+	String getBackend();
 
 	/**
 	 * Entities can be abstract (analogous an 'interface' or 'protocol'). Use is to define reusable Entity model
@@ -30,12 +53,18 @@ public interface EntityMetaData
 	/**
 	 * Returns all attributes. In case of compound attributes (attributes consisting of multiple atomic attributes) only
 	 * the compound attribute is returned. This attribute can be used to retrieve parts of the compound attribute.
+	 * 
+	 * In case EntityMetaData extends other EntityMetaData then the attributes of this EntityMetaData as well as its
+	 * parent class are returned.
 	 */
 	Iterable<AttributeMetaData> getAttributes();
 
 	/**
 	 * Returns all atomic attributes. In case of compound attributes (attributes consisting of multiple atomic
 	 * attributes) only the descendant atomic attributes are returned. The compound attribute itself is not returned.
+	 * 
+	 * In case EntityMetaData extends other EntityMetaData then the attributes of this EntityMetaData as well as its
+	 * parent class are returned.
 	 */
 	Iterable<AttributeMetaData> getAtomicAttributes();
 
@@ -50,6 +79,11 @@ public interface EntityMetaData
 	AttributeMetaData getLabelAttribute();
 
 	/**
+	 * Returns attributes that must be searched in case of xref/mref search
+	 */
+	Iterable<AttributeMetaData> getLookupAttributes();
+
+	/**
 	 * Get attribute by name (case insensitive), returns null if not found
 	 */
 	AttributeMetaData getAttribute(String attributeName);
@@ -60,4 +94,5 @@ public interface EntityMetaData
 	public EntityMetaData getExtends();
 
 	Class<? extends Entity> getEntityClass();
+
 }

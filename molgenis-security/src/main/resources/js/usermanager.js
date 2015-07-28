@@ -2,7 +2,8 @@
 	"use strict";
 
 	var self = molgenis.usermanager = molgenis.usermanager || {};
-
+	 var api = new molgenis.RestClient();
+	 
 	/**
 	 * @memberOf molgenis.usermanager
 	 */
@@ -18,29 +19,39 @@
 	 * @memberOf molgenis.usermanager
 	 */
 	function getCreateForm(type) {
-		$.ajax({
-			type : 'GET',
-			url : '/api/v1/molgenis' + type + '/create',
-			success : function(text) {
-				$('#managerModalTitle').html('Add ' + type);
-				$('#controlGroups').html(text);
+		React.render(molgenis.ui.Form({
+			mode: 'create',
+			entity : 'molgenis' + type,
+			modal: true,
+			onSubmitSuccess : function(e) {
 				
+				//Put user in 'All users' group if not SuperUser
+				api.getAsync(e.location, null, function(user) {
+					if (user.superuser === false) {
+						addUserToAllUsersGroup(api.getPrimaryKeyFromHref(e.location), function() {
+							location.reload();
+						});
+					} else {
+						location.reload();
+					}
+				});
 			}
-		});
+		}), $('<div>')[0]);
 	}
 
 	/**
 	 * @memberOf molgenis.usermanager
 	 */
 	function getEditForm(id, type) {
-		$.ajax({
-			type : 'GET',
-			url : '/api/v1/molgenis' + type + '/' + id + '/edit',
-			success : function(text) {
-				$('#managerModalTitle').html('Edit ' + type);
-				$('#controlGroups').html(text);
+		React.render(molgenis.ui.Form({
+			entity : 'molgenis' + type,
+			entityInstance: id,
+			mode: 'edit',
+			modal: true,
+			onSubmitSuccess : function() {
+				location.reload();
 			}
-		});
+		}), $('<div>')[0]);
 	}
 
 	/**
@@ -50,38 +61,97 @@
 		// type: "user" | "group"
 		var active = checkbox.checked;
 		$.ajax({
+			headers: { 
+		        'Accept': 'application/json',
+		        'Content-Type': 'application/json' 
+		    },
 			type : 'PUT',
-			url : molgenis.getContextUrl() + '/setActivation/' + type + '/' + id + '/' + active,
-			success : function(text) {
-				$('#groupRow' + id).addClass('success')
-				$('#userRow' + id).addClass('success');
-				setTimeout(function() {
-					$('#groupRow' + id).removeClass('success');
-					location.reload();
-				}, 1000);
-			}
+			dataType: 'json',
+			data: JSON.stringify({
+				type : type,
+				id: id,
+				active: active
+			}),
+			url : molgenis.getContextUrl() + '/activation',
+			success : function(data) {
+				var styleClass = data.success ? 'success' : 'warning'
+				if(data.type === "group") {
+					$('#groupRow' + data.id).addClass(styleClass);
+					setTimeout(function() {$('#groupRow' + data.id).removeClass('success');}, 1000);
+				}
+				
+				if(data.type === "user") {
+					$('#userRow' + data.id).addClass(styleClass);
+					setTimeout(function() {$('#userRow' + data.id).removeClass('success');}, 1000);
+				}
+		}
 		});
 	}
-
+	
 	/**
 	 * @memberOf molgenis.usermanager
 	 */
 	function changeGroupMembership(userId, groupId, checkbox) {
 		var member = checkbox.checked;
 		$.ajax({
+			headers: { 
+		        'Accept': 'application/json',
+		        'Content-Type': 'application/json' 
+		    },
 			type : 'PUT',
-			url : molgenis.getContextUrl() + '/changeGroupMembership/' + userId + '/' + groupId + '/' + member,
-			success : function(text) {
-				// $('#controlGroups').html(text);
-				$('#userRow' + userId).addClass('success');
+			dataType: 'json',
+			url : molgenis.getContextUrl() + '/changeGroupMembership',
+			data: JSON.stringify({
+				userId: userId,
+				groupId: groupId,
+				member: member
+			}),
+			success : function(data) {
+				var styleClass = data.success ? 'success' : 'warning'
+				$('#userRow' + data.userId).addClass(styleClass);
 				setTimeout(function() {
-					$('#userRow' + userId).removeClass('success');
-					location.reload();
+					$('#userRow' + data.userId).removeClass(styleClass);
 				}, 1000);
 			}
 		});
 	}
-
+	
+	function addUserToAllUsersGroup(userId, callback) {
+		getAllUsersGroup(function(groupId) {
+			if (groupId === null) {
+				callback();
+			} else {
+				$.ajax({
+					headers: { 
+						'Accept': 'application/json',
+						'Content-Type': 'application/json' 
+					},
+					type : 'PUT',
+					dataType: 'json',
+					url : molgenis.getContextUrl() + '/changeGroupMembership',
+					data: JSON.stringify({
+						userId: userId,
+						groupId: groupId,
+						member: true
+					}),
+					success : function() {
+						callback();
+					}
+				});
+			}
+		});
+	}
+	
+	function getAllUsersGroup(callback) {
+		api.getAsync('/api/v1/MolgenisGroup', {q:[{field:'name', operator:'EQUALS', value:'All Users'}]}, function(result) {
+			var groupId = null;
+			if (result.total > 0) {
+				groupId = result.items[0].id;
+			}
+			callback(groupId);
+		});
+	}
+	
 	$(function() {
 		
 		$('#usersTab a').click(function(e) {
@@ -122,26 +192,6 @@
 
 		$('.activate-group-checkbox').click(function(e) {
 			setActivation('group', $(this).data('id'), this);
-		});
-
-		var submitBtn = $('#submitFormButton');
-		submitBtn.click(function(e) {
-			e.preventDefault();
-			e.stopPropagation();
-			$('#entity-form').submit();
-		});
-
-		$(document).on('onFormSubmitSuccess', function() {
-			$('#usermanagerModal').modal('toggle');
-			location.reload();
-		});
-		
-		$('#managerModal').keydown(function(e) {
-			// prevent modal being submitted if one presses enter
-			if (event.keyCode === 13) {
-				e.preventDefault();
-				e.stopPropagation();
-			}
 		});
 	});
 }($, window.top.molgenis = window.top.molgenis || {}));

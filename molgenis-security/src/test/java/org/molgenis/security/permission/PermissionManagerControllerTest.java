@@ -10,11 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.Arrays;
 
+import org.molgenis.auth.MolgenisGroup;
+import org.molgenis.auth.MolgenisUser;
 import org.molgenis.framework.ui.MolgenisPluginController;
 import org.molgenis.framework.ui.MolgenisPluginRegistry;
 import org.molgenis.framework.ui.MolgenisPluginRegistryImpl;
-import org.molgenis.omx.auth.MolgenisGroup;
-import org.molgenis.omx.auth.MolgenisUser;
 import org.molgenis.security.permission.PermissionManagerControllerTest.Config;
 import org.molgenis.util.GsonHttpMessageConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,9 +73,9 @@ public class PermissionManagerControllerTest extends AbstractTestNGSpringContext
 				.setMessageConverters(new GsonHttpMessageConverter()).build();
 
 		reset(permissionManagerService);
-		user1 = when(mock(MolgenisUser.class).getId()).thenReturn(1).getMock();
+		user1 = when(mock(MolgenisUser.class).getId()).thenReturn("1").getMock();
 		when(user1.getSuperuser()).thenReturn(true);
-		user2 = when(mock(MolgenisUser.class).getId()).thenReturn(2).getMock();
+		user2 = when(mock(MolgenisUser.class).getId()).thenReturn("2").getMock();
 		when(user2.getSuperuser()).thenReturn(false);
 		when(permissionManagerService.getUsers()).thenReturn(Arrays.<MolgenisUser> asList(user1, user2));
 		when(permissionManagerService.getGroups()).thenReturn(Arrays.<MolgenisGroup> asList(group1, group2));

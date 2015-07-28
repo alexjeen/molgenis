@@ -8,7 +8,7 @@ import java.io.InputStream;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.molgenis.data.MolgenisInvalidFormatException;
 import org.molgenis.data.Repository;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -22,7 +22,7 @@ public class ExcelRepositorySourceTest
 	private ExcelRepositoryCollection excelRepositoryCollection;
 
 	@BeforeMethod
-	public void beforeMethod() throws InvalidFormatException, IOException
+	public void beforeMethod() throws MolgenisInvalidFormatException, IOException
 	{
 		is = getClass().getResourceAsStream("/test.xls");
 		excelRepositoryCollection = new ExcelRepositoryCollection("test.xls", is);
@@ -51,11 +51,11 @@ public class ExcelRepositorySourceTest
 	@Test
 	public void getRepository()
 	{
-		Repository test = excelRepositoryCollection.getRepositoryByEntityName("test");
+		Repository test = excelRepositoryCollection.getRepository("test");
 		assertNotNull(test);
 		assertEquals(test.getName(), "test");
 
-		Repository blad2 = excelRepositoryCollection.getRepositoryByEntityName("Blad2");
+		Repository blad2 = excelRepositoryCollection.getRepository("Blad2");
 		assertNotNull(blad2);
 		assertEquals(blad2.getName(), "Blad2");
 	}

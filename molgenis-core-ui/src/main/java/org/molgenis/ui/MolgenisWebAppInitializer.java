@@ -9,8 +9,9 @@ import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRegistration;
 
-import org.apache.log4j.Logger;
 import org.molgenis.security.CorsFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.request.RequestContextListener;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
@@ -19,7 +20,10 @@ import org.springframework.web.servlet.DispatcherServlet;
 
 public class MolgenisWebAppInitializer
 {
-	private static final Logger logger = Logger.getLogger(MolgenisWebAppInitializer.class);
+	private static final int MB = 1024 * 1024;
+	// the size threshold after which multi-part files will be written to disk.
+	private static final int FILE_SIZE_THRESHOLD = 10 * MB;
+	private static final Logger LOG = LoggerFactory.getLogger(MolgenisWebAppInitializer.class);
 
 	protected void onStartup(ServletContext servletContext, Class<?> appConfig, boolean isDasUsed)
 			throws ServletException
@@ -34,7 +38,7 @@ public class MolgenisWebAppInitializer
 	 * @param servletContext
 	 * @param appConfig
 	 * @param isDasUsed
-	 *            is the molgenis-omx-das module used?
+	 *            is the molgenis-das module used?
 	 * @throws ServletException
 	 */
 	protected void onStartup(ServletContext servletContext, Class<?> appConfig, boolean isDasUsed, int maxFileSize)
@@ -52,16 +56,18 @@ public class MolgenisWebAppInitializer
 				rootContext));
 		if (dispatcherServlet == null)
 		{
-			logger.warn("ServletContext already contains a complete ServletRegistration for servlet 'dispatcher'");
+			LOG.warn("ServletContext already contains a complete ServletRegistration for servlet 'dispatcher'");
 		}
 		else
 		{
-			final int maxSize = maxFileSize * 1024 * 1024;
+			final long maxSize = (long) maxFileSize * MB;
 			int loadOnStartup = (isDasUsed ? 2 : 1);
 			dispatcherServlet.setLoadOnStartup(loadOnStartup);
 			dispatcherServlet.addMapping("/");
-			dispatcherServlet.setMultipartConfig(new MultipartConfigElement(null, maxSize, maxSize, maxSize));
+			dispatcherServlet
+					.setMultipartConfig(new MultipartConfigElement(null, maxSize, maxSize, FILE_SIZE_THRESHOLD));
 			dispatcherServlet.setInitParameter("dispatchOptionsRequest", "true");
+
 		}
 
 		// add filters

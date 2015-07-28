@@ -3,16 +3,16 @@ package org.molgenis.data.mysql;
 import javax.sql.DataSource;
 
 import org.molgenis.data.DataService;
-import org.molgenis.data.RepositoryDecoratorFactory;
-import org.molgenis.data.importer.EmxImportService;
-import org.molgenis.data.importer.ImportService;
+import org.molgenis.data.ManageableRepositoryCollection;
+import org.molgenis.data.elasticsearch.IndexedManageableRepositoryCollectionDecorator;
+import org.molgenis.data.elasticsearch.SearchService;
 import org.molgenis.data.importer.ImportServiceFactory;
-import org.molgenis.data.meta.AttributeMetaDataRepositoryDecoratorFactory;
-import org.molgenis.data.meta.EntityMetaDataRepositoryDecoratorFactory;
+import org.molgenis.security.permission.PermissionSystemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 @Configuration
 public class MySqlConfiguration
@@ -26,59 +26,44 @@ public class MySqlConfiguration
 	@Autowired
 	private ImportServiceFactory importServiceFactory;
 
-	// temporary workaround for module dependencies
 	@Autowired
-	private RepositoryDecoratorFactory repositoryDecoratorFactory;
+	private PermissionSystemService permissionSystemService;
+
 	@Autowired
-	private EntityMetaDataRepositoryDecoratorFactory entityMetaDataRepositoryDecoratorFactory;
-	@Autowired
-	private AttributeMetaDataRepositoryDecoratorFactory attributeMetaDataRepositoryDecoratorFactory;
+	private SearchService searchService;
+
+	@Bean
+	public AsyncJdbcTemplate asyncJdbcTemplate()
+	{
+		return new AsyncJdbcTemplate(new JdbcTemplate(dataSource));
+	}
 
 	@Bean
 	@Scope("prototype")
 	public MysqlRepository mysqlRepository()
 	{
-		return new MysqlRepository(dataSource);
+		return new MysqlRepository(dataService, dataSource, asyncJdbcTemplate());
 	}
 
-	@Bean
-	public MysqlEntityMetaDataRepository entityMetaDataRepository()
+	@Bean(name =
+	{ "MysqlRepositoryCollection" })
+	public ManageableRepositoryCollection mysqlRepositoryCollection()
 	{
-		return new MysqlEntityMetaDataRepository(dataSource);
-	}
-
-	@Bean
-	public MysqlAttributeMetaDataRepository attributeMetaDataRepository()
-	{
-		return new MysqlAttributeMetaDataRepository(dataSource);
-	}
-
-	@Bean
-	public MysqlRepositoryCollection mysqlRepositoryCollection()
-	{
-		return new MysqlRepositoryCollection(dataSource, dataService, entityMetaDataRepository(),
-				attributeMetaDataRepository(), repositoryDecoratorFactory, entityMetaDataRepositoryDecoratorFactory,
-				attributeMetaDataRepositoryDecoratorFactory)
+		MysqlRepositoryCollection mysqlRepositoryCollection = new MysqlRepositoryCollection()
 		{
 			@Override
-			protected MysqlRepository createMysqlRepsitory()
+			protected MysqlRepository createMysqlRepository()
 			{
-				MysqlRepository repo = mysqlRepository();
-				repo.setRepositoryCollection(this);
-				return repo;
+				return mysqlRepository();
+			}
+
+			@Override
+			public boolean hasRepository(String name)
+			{
+				throw new UnsupportedOperationException();
 			}
 		};
-	}
 
-	@Bean
-	public ImportService emxImportService()
-	{
-		return new EmxImportService(dataService);
-	}
-
-	@Bean
-	public MysqlRepositoryRegistrator mysqlRepositoryRegistrator()
-	{
-		return new MysqlRepositoryRegistrator(mysqlRepositoryCollection(), importServiceFactory, emxImportService());
+		return new IndexedManageableRepositoryCollectionDecorator(searchService, mysqlRepositoryCollection);
 	}
 }

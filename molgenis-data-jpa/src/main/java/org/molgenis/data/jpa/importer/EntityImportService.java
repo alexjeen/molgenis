@@ -1,6 +1,7 @@
 package org.molgenis.data.jpa.importer;
 
 import static org.molgenis.MolgenisFieldTypes.FieldTypeEnum.CATEGORICAL;
+import static org.molgenis.MolgenisFieldTypes.FieldTypeEnum.CATEGORICAL_MREF;
 import static org.molgenis.MolgenisFieldTypes.FieldTypeEnum.MREF;
 import static org.molgenis.MolgenisFieldTypes.FieldTypeEnum.XREF;
 
@@ -15,8 +16,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
 import org.molgenis.data.AttributeMetaData;
-import org.molgenis.data.CrudRepository;
 import org.molgenis.data.DataService;
 import org.molgenis.data.DatabaseAction;
 import org.molgenis.data.Entity;
@@ -42,7 +43,7 @@ import com.google.common.collect.Sets;
 public class EntityImportService
 {
 	private static final long MAX_CACHE_ITEMS = 100000;
-	private static int BATCH_SIZE = 100;
+	private static int BATCH_SIZE = 1000;
 	private DataService dataService;
 	private LoadingCache<CacheKey, Iterable<Entity>> refLoadingCache;
 
@@ -73,13 +74,7 @@ public class EntityImportService
 	@Transactional
 	public int importEntity(String entityName, Repository source, DatabaseAction dbAction)
 	{
-		final Repository repo = dataService.getRepositoryByEntityName(entityName);
-		if (!(repo instanceof CrudRepository))
-		{
-			throw new MolgenisDataException(repo.getName() + " is not a CrudRepository");
-		}
-
-		CrudRepository jpaRepository = (CrudRepository) repo;
+		final Repository jpaRepository = dataService.getRepository(entityName);
 
 		// Convert to MapEntity so we can be sure we can set xref/mref fields on it
 		List<Entity> entitiesToImport = Lists.newArrayList();
@@ -88,7 +83,7 @@ public class EntityImportService
 			entitiesToImport.add(new MapEntity(entity));
 		}
 
-		EntityMetaData entityMetaData = repo.getEntityMetaData();
+		EntityMetaData entityMetaData = jpaRepository.getEntityMetaData();
 
 		String updateKey = entityMetaData.getLabelAttribute().getName();
 		List<Entity> batch = Lists.newArrayListWithCapacity(BATCH_SIZE);
@@ -122,8 +117,8 @@ public class EntityImportService
 			boolean resolved = true;
 			for (AttributeMetaData attr : entityMetaData.getAttributes())
 			{
-				if ((attr.getDataType().getEnumType() == MREF) || (attr.getDataType().getEnumType() == XREF)
-						|| (attr.getDataType().getEnumType() == CATEGORICAL))
+				FieldTypeEnum enumType = attr.getDataType().getEnumType();
+				if (enumType == MREF || enumType == CATEGORICAL_MREF || enumType == XREF || enumType == CATEGORICAL)
 				{
 					boolean attrResolved = resolveEntityRef(entityName, entityToImport, attr);
 					resolved = resolved && attrResolved;
@@ -176,8 +171,8 @@ public class EntityImportService
 					boolean resolved = true;
 					for (AttributeMetaData attr : entityMetaData.getAttributes())
 					{
-						if (((attr.getDataType().getEnumType() == MREF) || (attr.getDataType().getEnumType() == XREF) || (attr
-								.getDataType().getEnumType() == CATEGORICAL))
+						FieldTypeEnum enumType = attr.getDataType().getEnumType();
+						if ((enumType == MREF || enumType == CATEGORICAL_MREF || enumType == XREF || enumType == CATEGORICAL)
 								&& attr.getRefEntity().getName().equalsIgnoreCase(entityName))
 						{
 							resolved = resolved && resolveEntityRef(entityName, entityToImport, attr);
@@ -209,8 +204,8 @@ public class EntityImportService
 				// this entity)
 				for (AttributeMetaData attr : entityMetaData.getAttributes())
 				{
-					if (((attr.getDataType().getEnumType() == MREF) || (attr.getDataType().getEnumType() == XREF) || (attr
-							.getDataType().getEnumType() == CATEGORICAL))
+					FieldTypeEnum enumType = attr.getDataType().getEnumType();
+					if ((enumType == MREF || enumType == CATEGORICAL_MREF || enumType == XREF || enumType == CATEGORICAL)
 							&& attr.getRefEntity().getName().equalsIgnoreCase(entityName)
 							&& !resolveEntityRef(entityName, entity, attr))
 					{
@@ -233,8 +228,7 @@ public class EntityImportService
 		return entitiesToImport.size();
 	}
 
-	public void update(CrudRepository repo, List<? extends Entity> entities, DatabaseAction dbAction,
-			String... keyNames)
+	public void update(Repository repo, List<? extends Entity> entities, DatabaseAction dbAction, String... keyNames)
 	{
 		if (keyNames.length == 0) throw new MolgenisDataException("At least one key must be provided, e.g. 'name'");
 
@@ -337,8 +331,8 @@ public class EntityImportService
 					}
 				}
 			}
-			Iterable<Entity> selectForUpdate = repo.findAll(q);
 
+			Iterable<Entity> selectForUpdate = repo.findAll(q);
 			// separate existing from new entities
 			for (Entity p : selectForUpdate)
 			{
@@ -350,8 +344,13 @@ public class EntityImportService
 				}
 				// copy existing from entityIndex to existingEntities
 				entityIndex.remove(combinedKeyBuilder.toString());
-				existingEntities.add(p);
+
+				Entity e = new MapEntity(repo.getEntityMetaData().getIdAttribute().getName());
+				e.set(p);
+
+				existingEntities.add(e);
 			}
+
 			// copy remaining to newEntities
 			newEntities = new ArrayList<Entity>(entityIndex.values());
 		}
@@ -362,7 +361,7 @@ public class EntityImportService
 		if (existingEntities.size() > 0
 				&& (dbAction == DatabaseAction.ADD_UPDATE_EXISTING || dbAction == DatabaseAction.UPDATE))
 		{
-			matchByNameAndUpdateFields(existingEntities, entities);
+			matchByNameAndUpdateFields(repo.getEntityMetaData(), existingEntities, entities);
 		}
 
 		switch (dbAction)
@@ -415,47 +414,36 @@ public class EntityImportService
 		}
 	}
 
-	private void matchByNameAndUpdateFields(List<? extends Entity> existingEntities, List<? extends Entity> entities)
+	private void matchByNameAndUpdateFields(EntityMetaData emd, List<? extends Entity> existingEntities,
+			List<? extends Entity> entities)
 	{
-		for (Entity entityInDb : existingEntities)
+		// check if there are any label fields otherwise check impossible
+		if (emd.getLabelAttribute() != null)
 		{
-			for (Entity newEntity : entities)
+			for (Entity entityInDb : existingEntities)
 			{
-				boolean match = false;
-				// check if there are any label fields otherwise check impossible
-				if (entityInDb.getLabelAttributeNames().size() > 0)
+				for (Entity newEntity : entities)
 				{
-					match = true;
-				}
-				for (String labelField : entityInDb.getLabelAttributeNames())
-				{
-					Object x1 = entityInDb.get(labelField);
-					Object x2 = newEntity.get(labelField);
+					Object x1 = entityInDb.get(emd.getLabelAttribute().getName());
+					Object x2 = newEntity.get(emd.getLabelAttribute().getName());
 
-					if (!x1.equals(x2))
+					if (x1.equals(x2))
 					{
-						match = false;
-						break;
-					}
-				}
-
-				if (match)
-				{
-					try
-					{
-						MapEntity mapEntity = new MapEntity();
-						for (String field : entityInDb.getAttributeNames())
+						try
 						{
-							mapEntity.set(field, newEntity.get(field));
+							MapEntity mapEntity = new MapEntity();
+							for (String field : entityInDb.getAttributeNames())
+							{
+								mapEntity.set(field, newEntity.get(field));
+							}
+							entityInDb.set(mapEntity);
 						}
-						entityInDb.set(mapEntity, false);
-					}
-					catch (Exception ex)
-					{
-						throw new MolgenisDataException(ex);
+						catch (Exception ex)
+						{
+							throw new MolgenisDataException(ex);
+						}
 					}
 				}
-
 			}
 		}
 	}
@@ -487,7 +475,7 @@ public class EntityImportService
 		final String foreignAttr = attr.getRefEntity().getLabelAttribute().getName();
 		String key = attr.getName() + "_" + foreignAttr;
 
-		if (attr.getDataType().getEnumType() == MREF)
+		if (attr.getDataType().getEnumType() == MREF || attr.getDataType().getEnumType() == CATEGORICAL_MREF)
 		{
 			List<String> keys = entityToBeImported.getList(key);
 			if (keys != null)
@@ -544,7 +532,7 @@ public class EntityImportService
 		if (!foundRefEntityList.isEmpty())
 		{
 			// Add the found ref entities
-			if (attr.getDataType().getEnumType() == MREF)
+			if (attr.getDataType().getEnumType() == MREF || attr.getDataType().getEnumType() == CATEGORICAL_MREF)
 			{
 				@SuppressWarnings("unchecked")
 				List<Entity> entityRefs = (List<Entity>) entityToBeImported.get(attr.getName());

@@ -82,7 +82,7 @@ public class EntitiesValidatorImpl implements EntitiesValidator
 		{
 			for (String name : repositoryCollection.getEntityNames())
 			{
-				Repository repository = repositoryCollection.getRepositoryByEntityName(name);
+				Repository repository = repositoryCollection.getRepository(name);
 			
 				try
 				{
@@ -293,5 +293,11 @@ public class EntitiesValidatorImpl implements EntitiesValidator
             }
             return ok;
         }
+        
+        @Override
+		public List<String> getPackages()
+		{
+			return Collections.emptyList();
+		}
 	}
 }

@@ -1,13 +1,13 @@
 package org.molgenis.security;
 
+import org.molgenis.auth.GroupAuthority;
+import org.molgenis.auth.MolgenisGroup;
+import org.molgenis.auth.MolgenisUser;
+import org.molgenis.auth.UserAuthority;
 import org.molgenis.data.DataService;
-import org.molgenis.omx.auth.GroupAuthority;
-import org.molgenis.omx.auth.MolgenisGroup;
-import org.molgenis.omx.auth.MolgenisUser;
-import org.molgenis.omx.auth.UserAuthority;
 import org.molgenis.security.account.AccountService;
 import org.molgenis.security.core.utils.SecurityUtils;
-import org.molgenis.security.runas.RunAsSystem;
+import org.molgenis.security.core.runas.RunAsSystem;
 import org.molgenis.security.user.UserAccountController;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -68,6 +68,7 @@ public class MolgenisSecurityWebAppDatabasePopulatorServiceImpl implements
 		allUsersGroup = new MolgenisGroup();
 		allUsersGroup.setName(AccountService.ALL_USER_GROUP);
 		dataService.add(MolgenisGroup.ENTITY_NAME, allUsersGroup);
+		dataService.getRepository(MolgenisGroup.ENTITY_NAME).flush();
 
 		// allow all users to see the home plugin
 		GroupAuthority usersGroupHomeAuthority = new GroupAuthority();

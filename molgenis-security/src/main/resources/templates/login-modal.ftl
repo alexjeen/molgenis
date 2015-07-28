@@ -1,9 +1,11 @@
 <#-- Bootstrap login modal -->
-<div id="login-modal" class="modal" tabindex="-1" aria-labelledby="login-modal-label" aria-hidden="true">
+<div id="login-modal" class="modal"<#if disableClose?? && disableClose == "true"><#else> tabindex="-1"</#if> aria-labelledby="login-modal-label" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
+            <#if disableClose?? && disableClose == "true"><#else>
                 <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+            </#if>
                 <h4 class="modal-title" id="login-modal-label">Sign in</h4>
             </div>
             <div class="modal-body">
@@ -15,18 +17,18 @@
                                 <div class="form-group">
                                     <label class="col-md-3 control-label" for="loginUsername">Username</label>
                                     <div class="col-md-9">
-                                        <input type="text" class="form-control" id="loginUsername" name="username" required>
+                                        <input id="username-field" type="text" class="form-control" name="username" required>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-md-3 control-label" for="loginPassword">Password</label>
                                     <div class="col-md-9">
-                                        <input type="password" class="form-control" id="loginPassword" name="password" required>
+                                        <input id="password-field" type="password" class="form-control" name="password" required>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <div class="col-md-offset-3 col-md-9">
-                                        <button id="login-btn" type="submit" class="btn btn-primary">Sign in</button>
+                                        <button id="signin-button" type="submit" class="btn btn-primary">Sign in</button>
                                     </div>
                                 </div>
                             </form>
@@ -34,7 +36,9 @@
                     </div>
                 </div>
                 <#-- links to other modals -->
-                <p><a class="modal-href" href="/account/register" data-target="register-modal-container"><small>Sign up</small></a></p>
+                <#if enable_self_registration == true>
+                    <p><a class="modal-href" href="/account/register" data-target="register-modal-container"><small>Sign up</small></a></p>
+                </#if>
                 <p><a class="modal-href" href="/account/password/reset" data-target="resetpassword-modal-container"><small>Forgot password?</small></a></p>
             </div>
         </div>

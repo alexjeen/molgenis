@@ -3,9 +3,9 @@ package org.molgenis;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.log4j.Logger;
 import org.molgenis.fieldtypes.BoolField;
 import org.molgenis.fieldtypes.CategoricalField;
+import org.molgenis.fieldtypes.CategoricalMrefField;
 import org.molgenis.fieldtypes.CompoundField;
 import org.molgenis.fieldtypes.DateField;
 import org.molgenis.fieldtypes.DatetimeField;
@@ -26,6 +26,8 @@ import org.molgenis.fieldtypes.TextField;
 import org.molgenis.fieldtypes.XrefField;
 import org.molgenis.model.MolgenisModelException;
 import org.molgenis.model.elements.Field;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Singleton class that holds all known field types in MOLGENIS. For each FieldType it can be defined how to behave in
@@ -35,25 +37,24 @@ import org.molgenis.model.elements.Field;
  */
 public class MolgenisFieldTypes
 {
-	private static final Logger logger = Logger.getLogger(MolgenisFieldTypes.class);
+	private static final Logger LOG = LoggerFactory.getLogger(MolgenisFieldTypes.class);
 
 	private static Map<String, FieldType> types = new TreeMap<String, FieldType>();
 	private static boolean init = false;
 
 	public enum FieldTypeEnum
 	{
-		BOOL, CATEGORICAL, COMPOUND, DATE, DATE_TIME, DECIMAL, EMAIL, ENUM, FILE, HTML, HYPERLINK, IMAGE, INT, LONG, MREF, SCRIPT, STRING, TEXT, XREF
+		BOOL, CATEGORICAL, CATEGORICAL_MREF, COMPOUND, DATE, DATE_TIME, DECIMAL, EMAIL, ENUM, FILE, HTML, HYPERLINK, IMAGE, INT, LONG, MREF, SCRIPT, STRING, TEXT, XREF
 	}
 
 	public static final FieldType BOOL = new BoolField();
 	public static final FieldType CATEGORICAL = new CategoricalField();
+	public static final FieldType CATEGORICAL_MREF = new CategoricalMrefField();
 	public static final FieldType COMPOUND = new CompoundField();
 	public static final FieldType DATE = new DateField();
 	public static final FieldType DATETIME = new DatetimeField();
 	public static final FieldType DECIMAL = new DecimalField();
 	public static final FieldType EMAIL = new EmailField();
-	public static final FieldType ENUM = new EnumField();
-	@Deprecated
 	public static final FieldType FILE = new FileField();
 	public static final FieldType HTML = new HtmlField();
 	public static final FieldType HYPERLINK = new HyperlinkField();
@@ -66,6 +67,9 @@ public class MolgenisFieldTypes
 	public static final FieldType TEXT = new TextField();
 	public static final FieldType XREF = new XrefField();
 
+	// FIXME Do not add public static final ENUM here, as it holds the enum options so it is different per attribute,
+	// this should be fixed. The options should not be added to the field
+
 	/** Initialize default field types */
 	private static void init()
 	{
@@ -73,12 +77,13 @@ public class MolgenisFieldTypes
 		{
 			addType(BOOL);
 			addType(CATEGORICAL);
+			addType(CATEGORICAL_MREF);
 			addType(COMPOUND);
 			addType(DATE);
 			addType(DATETIME);
 			addType(DECIMAL);
 			addType(EMAIL);
-			addType(ENUM);
+			addType(new EnumField());
 			addType(FILE);
 			addType(HTML);
 			addType(HYPERLINK);
@@ -123,7 +128,7 @@ public class MolgenisFieldTypes
 		}
 		else
 		{
-			logger.warn("couldn't get type for name '" + name + "'");
+			LOG.warn("couldn't get type for name '" + name + "'");
 			return null;
 		}
 	}
@@ -139,12 +144,12 @@ public class MolgenisFieldTypes
 		}
 		catch (InstantiationException e)
 		{
-			logger.error(e);
+			LOG.error("", e);
 			throw new MolgenisModelException(e.getMessage());
 		}
 		catch (IllegalAccessException e)
 		{
-			logger.error(e);
+			LOG.error("", e);
 			throw new MolgenisModelException(e.getMessage());
 		}
 	}
@@ -190,7 +195,7 @@ public class MolgenisFieldTypes
 				return new DatetimeField();
 
 			default:
-				logger.error("UNKNOWN sql code: " + sqlCode);
+				LOG.error("UNKNOWN sql code: " + sqlCode);
 				return null;
 		}
 	}

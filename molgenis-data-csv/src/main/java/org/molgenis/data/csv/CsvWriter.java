@@ -24,7 +24,6 @@ import com.google.common.collect.Lists;
 
 public class CsvWriter extends AbstractWritable
 {
-
 	public static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
 
 	public static final char DEFAULT_SEPARATOR = ',';
@@ -48,8 +47,21 @@ public class CsvWriter extends AbstractWritable
 
 	public CsvWriter(Writer writer, char separator)
 	{
+		this(writer, separator, false);
+	}
+
+	public CsvWriter(Writer writer, char separator, boolean noQuotes)
+	{
 		if (writer == null) throw new IllegalArgumentException("writer is null");
-		this.csvWriter = new au.com.bytecode.opencsv.CSVWriter(writer, separator);
+		if (noQuotes)
+		{
+			this.csvWriter = new au.com.bytecode.opencsv.CSVWriter(writer, separator,
+					au.com.bytecode.opencsv.CSVWriter.NO_QUOTE_CHARACTER);
+		}
+		else
+		{
+			this.csvWriter = new au.com.bytecode.opencsv.CSVWriter(writer, separator);
+		}
 	}
 
 	public CsvWriter(OutputStream os)
@@ -60,6 +72,11 @@ public class CsvWriter extends AbstractWritable
 	public CsvWriter(OutputStream os, char separator)
 	{
 		this(new OutputStreamWriter(os, DEFAULT_CHARSET), separator);
+	}
+
+	public CsvWriter(OutputStream os, char separator, boolean noQuotes)
+	{
+		this(new OutputStreamWriter(os, DEFAULT_CHARSET), separator, noQuotes);
 	}
 
 	public CsvWriter(File file) throws FileNotFoundException
@@ -168,12 +185,29 @@ public class CsvWriter extends AbstractWritable
 		}
 		else if (obj instanceof Entity)
 		{
-			value = ((Entity) obj).getLabelValue();
+			if (getWriteMode() != null)
+			{
+				switch (getWriteMode())
+				{
+					case ENTITY_IDS:
+						value = ((Entity) obj).getIdValue().toString();
+						break;
+					case ENTITY_LABELS:
+						value = ((Entity) obj).getLabelValue();
+						break;
+					default:
+						throw new RuntimeException("Unknown write mode [" + getWriteMode() + "]");
+				}
+			}
+			else
+			{
+				value = ((Entity) obj).getLabelValue();
+			}
 		}
-		else if (obj instanceof List<?>)
+		else if (obj instanceof Iterable<?>)
 		{
 			StringBuilder strBuilder = new StringBuilder();
-			for (Object listItem : (List<?>) obj)
+			for (Object listItem : (Iterable<?>) obj)
 			{
 				if (strBuilder.length() > 0) strBuilder.append(',');
 				strBuilder.append(toValue(listItem));

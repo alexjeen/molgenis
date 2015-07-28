@@ -3,12 +3,12 @@ package org.molgenis.security.user;
 import java.util.Collections;
 import java.util.List;
 
+import org.molgenis.auth.MolgenisGroup;
+import org.molgenis.auth.MolgenisGroupMember;
+import org.molgenis.auth.MolgenisUser;
 import org.molgenis.data.DataService;
 import org.molgenis.data.support.QueryImpl;
-import org.molgenis.omx.auth.MolgenisGroup;
-import org.molgenis.omx.auth.MolgenisGroupMember;
-import org.molgenis.omx.auth.MolgenisUser;
-import org.molgenis.security.runas.RunAsSystem;
+import org.molgenis.security.core.runas.RunAsSystem;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

@@ -12,10 +12,9 @@ import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.FileWriterWithEncoding;
+import org.molgenis.file.FileStore;
 import org.molgenis.script.Script;
 import org.molgenis.script.ScriptRunner;
-import org.molgenis.script.ScriptRunnerFactory;
-import org.molgenis.util.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
@@ -33,13 +32,11 @@ public class RScriptRunner implements ScriptRunner
 	private final FreeMarkerConfigurer freeMarkerConfig;
 
 	@Autowired
-	public RScriptRunner(RScriptExecutor rScriptExecutor, FileStore fileStore, FreeMarkerConfigurer freeMarkerConfig,
-			ScriptRunnerFactory scriptRunnerFactory)
+	public RScriptRunner(RScriptExecutor rScriptExecutor, FileStore fileStore, FreeMarkerConfigurer freeMarkerConfig)
 	{
 		this.rScriptExecutor = rScriptExecutor;
 		this.fileStore = fileStore;
 		this.freeMarkerConfig = freeMarkerConfig;
-		scriptRunnerFactory.registerScriptExecutor("r", this);
 	}
 
 	/**
@@ -107,7 +104,7 @@ public class RScriptRunner implements ScriptRunner
 	@Override
 	public String runScript(Script script, Map<String, Object> parameters)
 	{
-		File rScriptFile = script.generateScript(fileStore, "r", parameters);
+		File rScriptFile = script.generateScript(fileStore, "R", parameters);
 
 		StringROutputHandler handler = new StringROutputHandler();
 		runRScript(rScriptFile, handler);
@@ -128,7 +125,7 @@ public class RScriptRunner implements ScriptRunner
 
 	private String generateRandomRScriptName()
 	{
-		return UUID.randomUUID().toString().replaceAll("-", "") + ".r";
+		return UUID.randomUUID().toString().replaceAll("-", "") + ".R";
 	}
 
 }

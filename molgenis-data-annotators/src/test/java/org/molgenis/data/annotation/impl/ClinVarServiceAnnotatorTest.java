@@ -6,97 +6,57 @@ import static org.testng.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.molgenis.MolgenisFieldTypes;
-import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
-import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.Entity;
-import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.annotation.AnnotationService;
-import org.molgenis.data.annotation.impl.datastructures.HGNCLocations;
-import org.molgenis.data.annotation.provider.HgncLocationsProvider;
+import org.molgenis.data.annotation.impl.datastructures.ClinvarData;
+import org.molgenis.data.annotation.provider.ClinvarDataProvider;
+import org.molgenis.data.annotation.AbstractAnnotatorTest;
 import org.molgenis.data.support.MapEntity;
-import org.molgenis.framework.server.MolgenisSettings;
+import org.molgenis.data.vcf.VcfRepository;
 import org.molgenis.util.ResourceUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ClinVarServiceAnnotatorTest
+public class ClinVarServiceAnnotatorTest extends AbstractAnnotatorTest
 {
-	private EntityMetaData metaDataCanAnnotate;
-	private EntityMetaData metaDataCantAnnotate;
-	private ClinVarServiceAnnotator annotator;
-	private AttributeMetaData attributeMetaDataChrom;
-	private AttributeMetaData attributeMetaDataPos;
-	private AttributeMetaData attributeMetaDataCantAnnotateFeature;
-	private AttributeMetaData attributeMetaDataCantAnnotateChrom;
-	private AttributeMetaData attributeMetaDataCantAnnotatePos;
-	private Entity entity;
-	private ArrayList<Entity> input;
-
 	@BeforeMethod
 	public void beforeMethod() throws IOException
 	{
-		MolgenisSettings settings = mock(MolgenisSettings.class);
 		when(settings.getProperty(ClinVarServiceAnnotator.CLINVAR_FILE_LOCATION_PROPERTY)).thenReturn(
 				ResourceUtils.getFile(getClass(), "/clinvar_example.txt").getPath());
 
-		metaDataCanAnnotate = mock(EntityMetaData.class);
-		attributeMetaDataChrom = mock(AttributeMetaData.class);
-		attributeMetaDataPos = mock(AttributeMetaData.class);
+		String chrStr = "12";
+		Long chrPos = new Long(57966471);
+		String chrRef = "G";
+		String chrAlt = "A";
 
-		when(attributeMetaDataChrom.getName()).thenReturn(ClinVarServiceAnnotator.CHROMOSOME);
-		when(attributeMetaDataPos.getName()).thenReturn(ClinVarServiceAnnotator.POSITION);
-		when(attributeMetaDataChrom.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.STRING.toString().toLowerCase()));
-		when(attributeMetaDataPos.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.LONG.toString().toLowerCase()));
+		entity.set(VcfRepository.CHROM, chrStr);
+		entity.set(VcfRepository.POS, chrPos);
+		entity.set(VcfRepository.REF, chrRef);
+		entity.set(VcfRepository.ALT, chrAlt);
 
-		when(metaDataCanAnnotate.getAttribute(ClinVarServiceAnnotator.CHROMOSOME)).thenReturn(attributeMetaDataChrom);
-		when(metaDataCanAnnotate.getAttribute(ClinVarServiceAnnotator.POSITION)).thenReturn(attributeMetaDataPos);
-
-		metaDataCantAnnotate = mock(EntityMetaData.class);
-
-		attributeMetaDataCantAnnotateFeature = mock(AttributeMetaData.class);
-		when(attributeMetaDataCantAnnotateFeature.getName()).thenReturn("otherID");
-		when(attributeMetaDataCantAnnotateFeature.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.STRING.toString().toLowerCase()));
-
-		attributeMetaDataCantAnnotateChrom = mock(AttributeMetaData.class);
-		when(attributeMetaDataCantAnnotateChrom.getName()).thenReturn(DbnsfpVariantServiceAnnotator.CHROMOSOME);
-		when(attributeMetaDataCantAnnotateFeature.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.INT.toString().toLowerCase()));
-
-		attributeMetaDataCantAnnotatePos = mock(AttributeMetaData.class);
-		when(attributeMetaDataCantAnnotatePos.getName()).thenReturn(ClinVarServiceAnnotator.POSITION);
-		when(attributeMetaDataCantAnnotatePos.getDataType()).thenReturn(
-				MolgenisFieldTypes.getType(FieldTypeEnum.STRING.toString().toLowerCase()));
-
-		when(metaDataCantAnnotate.getAttribute(ClinVarServiceAnnotator.CHROMOSOME)).thenReturn(attributeMetaDataChrom);
-		when(metaDataCantAnnotate.getAttribute(ClinVarServiceAnnotator.POSITION)).thenReturn(
-				attributeMetaDataCantAnnotatePos);
-
-		entity = mock(Entity.class);
-
-		String chrStr = "11";
-		Long chrPos = new Long(19207841);
-		when(entity.getString(ClinVarServiceAnnotator.CHROMOSOME)).thenReturn(chrStr);
-		when(entity.getLong(ClinVarServiceAnnotator.POSITION)).thenReturn(chrPos);
-
-		input = new ArrayList<Entity>();
 		input.add(entity);
 
+		ClinvarDataProvider clinvarDataProvider = mock(ClinvarDataProvider.class);
 		AnnotationService annotationService = mock(AnnotationService.class);
-		HgncLocationsProvider hgncLocationsProvider = mock(HgncLocationsProvider.class);
-		Map<String, HGNCLocations> locationsMap = Collections.singletonMap("CSRP3", new HGNCLocations("CSRP3",
-				19207830l, 19207900l, "11"));
-		when(hgncLocationsProvider.getHgncLocations()).thenReturn(locationsMap);
-		annotator = new ClinVarServiceAnnotator(settings, annotationService, hgncLocationsProvider);
+
+		Map<List<String>, ClinvarData> clinvarDataMap = Collections.singletonMap(Arrays.asList("12", "57966471", "G",
+				"A"), new ClinvarData("82492", "single nucleotide variant", "KIF5A:c.1678G>A (p.Glu560Lys)", "3798",
+				"KIF5A", "not provided", "142701108", "-", "RCV000062571", "N", "MedGen:C0025202,SNOMED CT:2092003",
+				"somatic", "GRCh37", "12", "57966471", "57966471", "12q13.3", "not classified by submitter",
+				"NM_004984.2:c.1678G>A", "NP_004975.2:p.Glu560Lys", "1", "-", "-", "ClinVar:NM_004984.2:c.1678G>A",
+				"71601"));
+
+		when(clinvarDataProvider.getClinvarData()).thenReturn(clinvarDataMap);
+
+		annotator = new ClinVarServiceAnnotator(settings, clinvarDataProvider);
 	}
 
 	@Test
@@ -105,36 +65,37 @@ public class ClinVarServiceAnnotatorTest
 		List<Entity> expectedList = new ArrayList<Entity>();
 		Map<String, Object> resultMap = new LinkedHashMap<String, Object>();
 
-		resultMap.put(ClinVarServiceAnnotator.ALLELEID, "53860");
-		resultMap.put(ClinVarServiceAnnotator.TYPE, "deletion");
-		resultMap.put(ClinVarServiceAnnotator.GENE_NAME, "NM_003476.4:c.282-5_285delAACAGGTCC");
-		resultMap.put(ClinVarServiceAnnotator.GENEID, "8048");
-		resultMap.put(ClinVarServiceAnnotator.GENESYMBOL, "CSRP3");
-		resultMap.put(ClinVarServiceAnnotator.CLINICALSIGNIFICANCE, "Uncertain significance");
-		resultMap.put(ClinVarServiceAnnotator.RS_DBSNP, "397516855");
+		resultMap.put(ClinVarServiceAnnotator.ALLELEID, "82492");
+		resultMap.put(ClinVarServiceAnnotator.TYPE, "single nucleotide variant");
+		resultMap.put(ClinVarServiceAnnotator.GENE_NAME, "KIF5A:c.1678G>A (p.Glu560Lys)");
+		resultMap.put(ClinVarServiceAnnotator.GENEID, "3798");
+		resultMap.put(ClinVarServiceAnnotator.GENESYMBOL, "KIF5A");
+		resultMap.put(ClinVarServiceAnnotator.CLINICALSIGNIFICANCE, "not provided");
+		resultMap.put(ClinVarServiceAnnotator.RS_DBSNP, "142701108");
 		resultMap.put(ClinVarServiceAnnotator.NSV_DBVAR, "-");
-		resultMap.put(ClinVarServiceAnnotator.RCVACCESSION, "RCV000037779");
+		resultMap.put(ClinVarServiceAnnotator.RCVACCESSION, "RCV000062571");
 		resultMap.put(ClinVarServiceAnnotator.TESTEDINGTR, "N");
-		resultMap.put(ClinVarServiceAnnotator.PHENOTYPEIDS, "MedGen:CN169374");
-		resultMap.put(ClinVarServiceAnnotator.ORIGIN, "germline");
+		resultMap.put(ClinVarServiceAnnotator.PHENOTYPEIDS, "MedGen:C0025202,SNOMED CT:2092003");
+		resultMap.put(ClinVarServiceAnnotator.ORIGIN, "somatic");
 		resultMap.put(ClinVarServiceAnnotator.ASSEMBLY, "GRCh37");
-		resultMap.put(ClinVarServiceAnnotator.CLINVAR_CHROMOSOME, "11");
-		resultMap.put(ClinVarServiceAnnotator.START, "19207892");
-		resultMap.put(ClinVarServiceAnnotator.STOP, "19207900");
-		resultMap.put(ClinVarServiceAnnotator.CYTOGENETIC, "11p15.1");
-		resultMap.put(ClinVarServiceAnnotator.REVIEWSTATUS, "classified by single submitter");
-		resultMap.put(ClinVarServiceAnnotator.HGVS_C, "LRG_440:g.29221_29229delAACAGGTCC");
-		resultMap.put(ClinVarServiceAnnotator.HGVS_P, "");
+		resultMap.put(ClinVarServiceAnnotator.CLINVAR_CHROMOSOME, "12");
+		resultMap.put(ClinVarServiceAnnotator.START, "57966471");
+		resultMap.put(ClinVarServiceAnnotator.STOP, "57966471");
+		resultMap.put(ClinVarServiceAnnotator.CYTOGENETIC, "12q13.3");
+		resultMap.put(ClinVarServiceAnnotator.REVIEWSTATUS, "not classified by submitter");
+		resultMap.put(ClinVarServiceAnnotator.HGVS_C, "NM_004984.2:c.1678G>A");
+		resultMap.put(ClinVarServiceAnnotator.HGVS_P, "NP_004975.2:p.Glu560Lys");
 		resultMap.put(ClinVarServiceAnnotator.NUMBERSUBMITTERS, "1");
-		resultMap.put(ClinVarServiceAnnotator.LASTEVALUATED, "08 Mar 2012");
+		resultMap.put(ClinVarServiceAnnotator.LASTEVALUATED, "-");
 		resultMap.put(ClinVarServiceAnnotator.GUIDELINES, "-");
-		resultMap.put(ClinVarServiceAnnotator.OTHERIDS, "-");
+		resultMap.put(ClinVarServiceAnnotator.OTHERIDS, "ClinVar:NM_004984.2:c.1678G>A");
+		resultMap.put(ClinVarServiceAnnotator.VARIANTIDS, "71601");
 
 		Entity expectedEntity = new MapEntity(resultMap);
 
 		expectedList.add(expectedEntity);
 
-		Iterator<Entity> results = annotator.annotate(input.iterator());
+		Iterator<Entity> results = annotator.annotate(input);
 
 		Entity resultEntity = results.next();
 
@@ -183,18 +144,6 @@ public class ClinVarServiceAnnotatorTest
 				expectedEntity.get(ClinVarServiceAnnotator.GUIDELINES));
 		assertEquals(resultEntity.get(ClinVarServiceAnnotator.OTHERIDS),
 				expectedEntity.get(ClinVarServiceAnnotator.OTHERIDS));
-	}
-
-	@Test
-	public void canAnnotateTrueTest()
-	{
-		assertEquals(annotator.canAnnotate(metaDataCanAnnotate), true);
-	}
-
-	@Test
-	public void canAnnotateFalseTest()
-	{
-		assertEquals(annotator.canAnnotate(metaDataCantAnnotate), false);
 	}
 
 }

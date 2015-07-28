@@ -6,9 +6,9 @@ import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.molgenis.data.DataService;
 import org.molgenis.data.support.QueryImpl;
+import org.molgenis.file.FileStore;
 import org.molgenis.security.core.utils.SecurityUtils;
 import org.molgenis.security.token.TokenService;
-import org.molgenis.util.FileStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -65,9 +65,9 @@ public class SavedScriptRunner
 
 		if (script.getParameters() != null)
 		{
-			for (String param : script.getParameters())
+			for (ScriptParameter param : script.getParameters())
 			{
-				if (!parameters.containsKey(param))
+				if (!parameters.containsKey(param.getName()))
 				{
 					throw new GenerateScriptException("Missing parameter [" + param + "]");
 				}
@@ -89,7 +89,7 @@ public class SavedScriptRunner
 			parameters.put("outputFile", outputFile);
 		}
 
-		ScriptRunner scriptRunner = scriptRunnerFactory.getScriptRunner(script.getType());
+		ScriptRunner scriptRunner = scriptRunnerFactory.getScriptRunner(script.getType().getName());
 		String output = scriptRunner.runScript(script, parameters);
 
 		return new ScriptResult(outputFile, output);

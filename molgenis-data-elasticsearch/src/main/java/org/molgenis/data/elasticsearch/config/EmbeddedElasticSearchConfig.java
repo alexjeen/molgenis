@@ -3,10 +3,14 @@ package org.molgenis.data.elasticsearch.config;
 import java.io.File;
 import java.util.Collections;
 
+import org.elasticsearch.common.logging.ESLoggerFactory;
+import org.elasticsearch.common.logging.slf4j.Slf4jESLoggerFactory;
 import org.molgenis.data.DataService;
+import org.molgenis.data.elasticsearch.ElasticSearchService;
 import org.molgenis.data.elasticsearch.SearchService;
 import org.molgenis.data.elasticsearch.factory.EmbeddedElasticSearchServiceFactory;
 import org.molgenis.data.elasticsearch.index.EntityToSourceConverter;
+import org.molgenis.data.transaction.MolgenisTransactionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,11 +25,20 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class EmbeddedElasticSearchConfig
 {
+	static
+	{
+		// force Elasticsearch to use slf4j instead of default log4j logging
+		ESLoggerFactory.setDefaultFactory(new Slf4jESLoggerFactory());
+	}
+
 	@Autowired
 	private DataService dataService;
 
 	@Autowired
 	public EntityToSourceConverter entityToSourceConverter;
+
+	@Autowired
+	public MolgenisTransactionManager molgenisTransactionManager;
 
 	@Bean(destroyMethod = "close")
 	public EmbeddedElasticSearchServiceFactory embeddedElasticSearchServiceFactory()
@@ -55,6 +68,10 @@ public class EmbeddedElasticSearchConfig
 	@Bean
 	public SearchService searchService()
 	{
-		return embeddedElasticSearchServiceFactory().create(dataService, entityToSourceConverter);
+		ElasticSearchService elasticSearchService = embeddedElasticSearchServiceFactory().create(dataService,
+				entityToSourceConverter);
+		molgenisTransactionManager.addTransactionListener(elasticSearchService);
+
+		return elasticSearchService;
 	}
 }

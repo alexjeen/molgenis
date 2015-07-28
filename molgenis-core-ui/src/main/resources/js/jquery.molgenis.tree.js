@@ -3,22 +3,46 @@
 	
 	var restApi = new molgenis.RestClient();
 	
-	function createChildren(attributes, doSelect) {
+	function createChildren(attributes, refEntityDepth, maxDepth, doSelect) {
 		var children = [];
-		$.each(attributes, function() {
-			var isFolder = this.fieldType === 'COMPOUND';
-			children.push({
-				'key' : this.href,
-				'title' : this.label,
-				'tooltip' : this.description,
-				'folder' : isFolder,
-				'lazy' : isFolder,
-				'expanded' : !isFolder,
-				'selected' : doSelect(this),
-				'data' : {
-					'attribute' : this
+		
+		$.each(attributes, function() {		
+			
+			var isFolder = false;		
+			var classes = null;
+			if (molgenis.isRefAttr(this)) {
+				if (maxDepth >= 0){
+					isFolder = refEntityDepth < maxDepth ? true : false;
+				}else{
+					isFolder = true;
 				}
-			});
+				if (isFolder) classes = 'refentitynode';
+			}
+			
+			if (this.refEntity && (refEntityDepth > 0)) {
+				classes = 'nofilter';
+			}
+			
+			
+            if(this.visible) {
+                var isFolder = isFolder || molgenis.isCompoundAttr(this);
+
+                children.push({
+                    'key': this.href,
+                    'title': this.label,
+                    'tooltip': this.description,
+                    'folder': isFolder,
+                    'hideCheckbox': refEntityDepth > 0,
+                    'lazy': isFolder,
+                    'expanded': !isFolder,
+                    'selected': doSelect(this),
+                    'data': {
+                        'attribute': this
+                    },
+                    'refEntityDepth': refEntityDepth,
+                    'extraClasses': classes
+                });
+            }
 		});
 		return children;
 	}
@@ -41,22 +65,55 @@
 		
 		// create tree container
 		var items = [];
-		items.push('<div class="row molgenis-tree-controls">');
+		items.push('<div class="row">');
+		items.push('<div class="col-md-12">');
+		items.push('<div class="molgenis-tree-controls">');
 		items.push('<a href="#" class="btn btn-link pull-right tree-deselect-all-btn">Deselect all</a>');
 		items.push('<a href="#" class="btn btn-link pull-right tree-select-all-btn">Select all</a>');
 		items.push('</div>');
-		items.push('<div class="row molgenis-tree"></div>');
+		items.push('</div>');
+		items.push('</div>');
+		items.push('<div class="row">');
+		items.push('<div class="col-md-12">');
+		items.push('<div class="molgenis-tree">');
+		items.push('</div>');
+		items.push('</div>');
+		items.push('</div>');
 		container.html(items.join(''));
 
 		// create tree container
 		var tree = $('.molgenis-tree', container);
 		var settings = $.extend({}, $.fn.tree.defaults, options);
-		
+
 		// store tree settings
 		container.data('settings', settings);
 		
 		// plugin methods
 		container.data('tree', {
+			'getSelectedAttributesTree' : function(options) {
+				var selectedNodes = tree.fancytree('getTree').getSelectedNodes(true);
+				var attrs = {};
+				for(var i = 0; i < selectedNodes.length; ++i) {
+					// construct path to node
+					var path = [];
+					for(var node = selectedNodes[i]; node !== null;) {
+						if(node.data && node.data.attribute) {
+							path.push(node.data.attribute.name);
+						}
+						node = node.getParent();
+					}
+					
+					// update attrs
+					for (var j = path.length - 1, attrsAtDepth = attrs; j >= 0; --j) {
+						var attrName = path[j];
+						if(attrsAtDepth[attrName] === undefined) {
+							attrsAtDepth[attrName] = j > 0 ? {} : null; 
+						}
+						attrsAtDepth = attrsAtDepth[attrName];
+					}
+				}
+				return attrs;
+			},
 			'getSelectedAttributes' : function(options) {
 				var selectedNodes = tree.fancytree('getTree').getSelectedNodes(true);
 				return $.map(selectedNodes, function(selectedNode) {
@@ -78,26 +135,44 @@
 				if (settings.onInit)
 					settings.onInit();
 				
-				data.tree.getFirstChild().setActive(true);
+				if (data.tree.getFirstChild()) {
+					data.tree.getFirstChild().setActive(true);
+				}
 			},
-			'lazyload' : function (e, data) {
+			'lazyLoad' : function (e, data) {
 				var node = data.node;
+				
+				var target;
+				var increaseDepth = 0;
+				if (molgenis.isRefAttr(node.data.attribute)){
+					target = node.data.attribute.refEntity.href;
+					increaseDepth = 1;
+				}else{
+					target = node.key;
+				}
+	
 				data.result = $.Deferred(function (dfd) {
-					restApi.getAsync(node.key, {'expand': ['attributes']}, function(attributeMetaData) {
-						var children = createChildren(attributeMetaData.attributes, function() {
+					restApi.getAsync(target, {'expand': ['attributes']}, function(attributeMetaData) {
+						var children = createChildren(attributeMetaData.attributes, node.data.refEntityDepth + increaseDepth, settings.maxRefEntityDepth, function() {
 							return node.selected;
 						});
 						dfd.resolve(children);
 					});
 				});	
 			},
-			'source' : createChildren(settings.entityMetaData.attributes, function(attribute) {
-					return settings.selectedAttributes ? $.inArray(attribute, settings.selectedAttributes) !== -1  : false;
+			'source' : createChildren(settings.entityMetaData.attributes, 0, settings.maxRefEntityDepth, function(attribute) {
+				return settings.selectedAttributes ? $.inArray(attribute, settings.selectedAttributes) !== -1  : false;
 			}),
 			'click' : function(e, data) {
 				if (data.targetType === 'title' || data.targetType === 'icon') {
-					if (settings.onAttributeClick)
-						settings.onAttributeClick(data.node.data.attribute);
+					if (settings.onAttributeClick) {
+						var attr = data.node.data.attribute;
+						var node = getRefParentNode(data.node);
+						if (node !== null) {
+							attr.parent = node.data.attribute;
+						}
+						settings.onAttributeClick(attr);
+					}
 				}
 			},
 			'select' : function(e, data) {
@@ -106,6 +181,21 @@
 			}
 		};
 		tree.fancytree(treeConfig);
+		
+		//Give the mref/xref/categorical parent of the given node or null if it does not have such a parent
+		function getRefParentNode(node) {
+			var parent = node.parent;
+			var attr = parent.data.attribute;
+			while (attr) {
+				if (attr.refEntity) {
+					return parent;
+				}
+				parent = parent.parent;
+				attr = parent.data.attribute;
+			}
+			
+			return null;
+		}
 		
 		$('.tree-select-all-btn', container).click(function(e) {
 			e.preventDefault();
@@ -159,6 +249,9 @@
 		'focusedAttribute' : null,
 		'icon' : null,
 		'onAttributeClick' : null,
-		'onAttributesSelect' : null
+		'onAttributesSelect' : null,
+		'maxRefEntityDepth': 1	// -1 = infinite depth
+							   	//  0 = default behavior (no expanding refEntities)
+							   	// >0 = nr. of nested refEntities that can be expanded
 	};
 }($, window.top.molgenis = window.top.molgenis || {}));

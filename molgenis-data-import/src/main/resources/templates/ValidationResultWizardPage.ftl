@@ -1,7 +1,7 @@
 <#if wizard.validationMessage??>
 	<script>
 		$(function() {
-			$('.bwizard-steps').after($('<div class="alert alert-block alert-danger">${wizard.validationMessage}</div>'));
+			$('.bwizard-steps').after($('<div class="alert alert-block alert-danger">${wizard.validationMessage?js_string}</div>'));
 			$('.pager .next').addClass('disabled');
 		});
 	</script>
@@ -23,13 +23,7 @@
 	<tbody>
 	<#list wizard.entitiesImportable?keys as entity>
 		<tr>
-			<td>
-				<#if wizard.entitiesImportable[entity] == true>
-					<a href="generated-doc/fileformat.html#${entity}_entity" target="_blank">${entity}</a>
-				<#else>
-					${entity}
-				</#if>
-			</td>
+			<td>${entity?html}</td>
 			
 			<#if wizard.entitiesImportable[entity] == true>
 				<td class="alert alert-success" style="text-align: center;">Yes</td>
@@ -57,25 +51,27 @@
 	</thead>
 	
 	<#list wizard.entitiesImportable?keys as entity>
-		<#if wizard.entitiesImportable[entity] == true>
+		<#if wizard.entitiesImportable[entity] == true 
+			&& ((wizard.fieldsDetected[entity]?? && wizard.fieldsDetected[entity]?size gt 0)
+			 || (wizard.fieldsRequired[entity]?? && wizard.fieldsRequired[entity]?size gt 0)
+			 || (wizard.fieldsAvailable[entity]?? && wizard.fieldsAvailable[entity]?size gt 0)
+			 || (wizard.fieldsUnknown[entity]?? && wizard.fieldsUnknown[entity]?size gt 0))>
 			<tr>
-				<td>
-					<a href="generated-doc/fileformat.html#${entity}_entity">${entity}</a>
-				</td>
-				<#if wizard.fieldsDetected[entity]?size gt 0>
+				<td>${entity?html}</td>
+				<#if wizard.fieldsDetected[entity]?? && wizard.fieldsDetected[entity]?size gt 0>
 					<td class="alert alert-success">
 						<#list wizard.fieldsDetected[entity] as field>
-							${field}<#if field_has_next>, </#if>
+							${field?html}<#if field_has_next>, </#if>
 						</#list>
 					</td>
 				<#else>
 					<td class="alert alert-danger">No fields detected</td>
 				</#if>
 				
-				<#if wizard.fieldsRequired[entity]?size gt 0>
+				<#if wizard.fieldsRequired[entity]?? && wizard.fieldsRequired[entity]?size gt 0>
 					<td class="alert alert-danger">
 						<#list wizard.fieldsRequired[entity] as field>
-							${field}<#if field_has_next>, </#if>
+							${field?html}<#if field_has_next>, </#if>
 						</#list>
 					</td>
 				<#else>
@@ -83,10 +79,10 @@
 				</#if>
 			
 				
-				<#if wizard.fieldsAvailable[entity]?size gt 0>
+				<#if wizard.fieldsAvailable[entity]?? && wizard.fieldsAvailable[entity]?size gt 0>
 					<td class="alert alert-info">
 						<#list wizard.fieldsAvailable[entity] as field>
-							${field}<#if field_has_next>, </#if>
+							${field?html}<#if field_has_next>, </#if>
 						</#list>
 					</td>
 				<#else>
@@ -94,10 +90,10 @@
 				</#if>
 				
 				
-				<#if wizard.fieldsUnknown[entity]?size gt 0>
+				<#if wizard.fieldsUnknown[entity]?? && wizard.fieldsUnknown[entity]?size gt 0>
 					<td class="alert alert-warning">
 						<#list wizard.fieldsUnknown[entity] as field>
-							${field}<#if field_has_next>, </#if>
+							${field?html}<#if field_has_next>, </#if>
 						</#list>
 					</td>
 				<#else>

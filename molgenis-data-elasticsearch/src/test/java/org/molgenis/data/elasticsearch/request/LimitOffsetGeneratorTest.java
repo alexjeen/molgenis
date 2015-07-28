@@ -1,10 +1,11 @@
 package org.molgenis.data.elasticsearch.request;
 
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.molgenis.data.elasticsearch.request.LimitOffsetGenerator;
 import org.molgenis.data.support.QueryImpl;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -32,7 +33,7 @@ public class LimitOffsetGeneratorTest
 	{
 		LimitOffsetGenerator gen = new LimitOffsetGenerator();
 		gen.generate(searchRequestBuilderMock, new QueryImpl(), null);
-		verify(searchRequestBuilderMock).setSize(Integer.MAX_VALUE);
+		verify(searchRequestBuilderMock, times(0)).setSize(any(Integer.class));
 	}
 
 	@Test

@@ -75,6 +75,22 @@ public class QueryRule
 
 		/**
 		 * 'field' equal to 'value'
+		 * 
+		 * When 'field type' is 'Mref' its results are derived from the 'Contains' behavior. <br>
+		 * Examples: <br>
+		 * 1. ref1 OR ref2 can result in:
+		 * <ul>
+		 * <li>re1</li>
+		 * <li>ref1, ref2</li>
+		 * <li>ref1, ref2, ref3;</li>
+		 * <li>ref2</li>
+		 * <li>ref2, ref3</li>
+		 * </ul>
+		 * 2. ref1 AND ref2 can result in:
+		 * <ul>
+		 * <li>ref1, ref2</li>
+		 * <li>ref1, ref2, ref3</li>
+		 * </ul>
 		 */
 		EQUALS("="),
 
@@ -102,6 +118,12 @@ public class QueryRule
 		 * 'field' equal-or-greater-than 'value'
 		 */
 		GREATER_EQUAL(">="),
+
+		/**
+		 * 'field' equal-or-greater-than 'from value' and equal-or-less-than 'to value' (value being a list with 'from
+		 * value' as first element and 'to value' as second element
+		 */
+		RANGE("RANGE"),
 
 		/**
 		 * 'field' like 'value' (works like equals with wildcard before and after value)
@@ -136,7 +158,12 @@ public class QueryRule
 		/**
 		 * Disjunction max query
 		 */
-		DIS_MAX("DIS_MAX");
+		DIS_MAX("DIS_MAX"),
+
+		/**
+		 * Fuzzy match operator
+		 */
+		FUZZY_MATCH("FUZZY_MATCH");
 
 		private String label;
 
@@ -245,7 +272,7 @@ public class QueryRule
 	 */
 	public QueryRule(Operator operator)
 	{
-		if (operator == Operator.AND || operator == Operator.OR)
+		if (operator == Operator.AND || operator == Operator.OR || operator == Operator.NOT)
 		{
 			this.operator = operator;
 		}
@@ -381,32 +408,26 @@ public class QueryRule
 	@Override
 	public int hashCode()
 	{
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((field == null) ? 0 : field.hashCode());
-		result = prime * result + ((operator == null) ? 0 : operator.hashCode());
-		result = prime * result + ((value == null) ? 0 : value.hashCode());
+		int result = operator != null ? operator.hashCode() : 0;
+		result = 31 * result + (field != null ? field.hashCode() : 0);
+		result = 31 * result + (value != null ? value.hashCode() : 0);
+		result = 31 * result + (nestedRules != null ? nestedRules.hashCode() : 0);
 		return result;
 	}
 
 	@Override
-	public boolean equals(Object obj)
+	public boolean equals(Object o)
 	{
-		if (this == obj) return true;
-		if (obj == null) return false;
-		if (getClass() != obj.getClass()) return false;
-		QueryRule other = (QueryRule) obj;
-		if (field == null)
-		{
-			if (other.field != null) return false;
-		}
-		else if (!field.equals(other.field)) return false;
-		if (operator != other.operator) return false;
-		if (value == null)
-		{
-			if (other.value != null) return false;
-		}
-		else if (!value.equals(other.value)) return false;
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		QueryRule queryRule = (QueryRule) o;
+
+		if (field != null ? !field.equals(queryRule.field) : queryRule.field != null) return false;
+		if (nestedRules != null ? !nestedRules.equals(queryRule.nestedRules) : queryRule.nestedRules != null) return false;
+		if (operator != queryRule.operator) return false;
+		if (value != null ? !value.equals(queryRule.value) : queryRule.value != null) return false;
+
 		return true;
 	}
 }

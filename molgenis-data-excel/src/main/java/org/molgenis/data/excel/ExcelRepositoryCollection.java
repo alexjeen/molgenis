@@ -4,19 +4,23 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.MolgenisInvalidFormatException;
 import org.molgenis.data.Repository;
+import org.molgenis.data.Writable;
 import org.molgenis.data.processor.CellProcessor;
 import org.molgenis.data.processor.TrimProcessor;
 import org.molgenis.data.support.FileRepositoryCollection;
+import org.molgenis.data.support.GenericImporterExtensions;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 /**
@@ -26,27 +30,35 @@ import com.google.common.collect.Lists;
  */
 public class ExcelRepositoryCollection extends FileRepositoryCollection
 {
-	public static final Set<String> EXTENSIONS = ImmutableSet.of("xls", "xlsx");
+	public static final String NAME = "EXCEL";
+
 	private final String name;
 	private final Workbook workbook;
 
-	public ExcelRepositoryCollection(File file) throws InvalidFormatException, IOException
+	public ExcelRepositoryCollection(File file) throws IOException, MolgenisInvalidFormatException
 	{
 		this(file, new TrimProcessor());
 	}
 
-	public ExcelRepositoryCollection(File file, CellProcessor... cellProcessors) throws InvalidFormatException,
-			IOException
+	public ExcelRepositoryCollection(File file, CellProcessor... cellProcessors) throws IOException,
+			MolgenisInvalidFormatException
 	{
 		this(file.getName(), new FileInputStream(file), cellProcessors);
 	}
 
-	public ExcelRepositoryCollection(String name, InputStream in, CellProcessor... cellProcessors)
-			throws InvalidFormatException, IOException
+	public ExcelRepositoryCollection(String name, InputStream in, CellProcessor... cellProcessors) throws IOException,
+			MolgenisInvalidFormatException
 	{
-		super(EXTENSIONS, cellProcessors);
+		super(GenericImporterExtensions.getExcel(), cellProcessors);
 		this.name = name;
-		workbook = WorkbookFactory.create(in);
+		try
+		{
+			workbook = WorkbookFactory.create(in);
+		}
+		catch (InvalidFormatException e)
+		{
+			throw new MolgenisInvalidFormatException(e.getMessage());
+		}
 	}
 
 	@Override
@@ -64,7 +76,7 @@ public class ExcelRepositoryCollection extends FileRepositoryCollection
 	}
 
 	@Override
-	public Repository getRepositoryByEntityName(String name)
+	public Repository getRepository(String name)
 	{
 		Sheet poiSheet = workbook.getSheet(name);
 		if (poiSheet == null)
@@ -94,6 +106,63 @@ public class ExcelRepositoryCollection extends FileRepositoryCollection
 		}
 
 		return new ExcelRepository(name, poiSheet, cellProcessors);
+	}
+
+	public Writable createWritable(String entityName, List<String> attributeNames)
+	{
+		Sheet sheet = workbook.createSheet(entityName);
+		return new ExcelSheetWriter(sheet, attributeNames, cellProcessors);
+	}
+
+	public void save(OutputStream out) throws IOException
+	{
+		workbook.write(out);
+	}
+
+	@Override
+	public String getName()
+	{
+		return NAME;
+	}
+
+	@Override
+	public Repository addEntityMeta(EntityMetaData entityMeta)
+	{
+		return getRepository(entityMeta.getName());
+	}
+
+	@Override
+	public Iterator<Repository> iterator()
+	{
+		return new Iterator<Repository>()
+		{
+			Iterator<String> it = getEntityNames().iterator();
+
+			@Override
+			public boolean hasNext()
+			{
+				return it.hasNext();
+			}
+
+			@Override
+			public Repository next()
+			{
+				return getRepository(it.next());
+			}
+
+		};
+	}
+
+	@Override
+	public boolean hasRepository(String name)
+	{
+		if (null == name) return false;
+		Iterator<String> entityNames = getEntityNames().iterator();
+		while (entityNames.hasNext())
+		{
+			if (entityNames.next().equals(name)) return true;
+		}
+		return false;
 	}
 
 }

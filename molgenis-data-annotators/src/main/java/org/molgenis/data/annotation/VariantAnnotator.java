@@ -1,26 +1,34 @@
 package org.molgenis.data.annotation;
 
 import org.molgenis.MolgenisFieldTypes;
+import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.support.DefaultAttributeMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
+import org.molgenis.data.vcf.VcfRepository;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class VariantAnnotator extends LocusAnnotator
 {
-	public static final String REFERENCE = "ref";
-	public static final String ALTERNATIVE = "alt";
-
-	@Override
-	public EntityMetaData getInputMetaData()
+    @Override
+	public List<AttributeMetaData> getInputMetaData()
 	{
-		DefaultEntityMetaData metadata = new DefaultEntityMetaData(this.getClass().getName(), MapEntity.class);
+		List<AttributeMetaData> metadata = new ArrayList<>();
 
-		metadata.addAttributeMetaData(new DefaultAttributeMetaData(CHROMOSOME, MolgenisFieldTypes.FieldTypeEnum.STRING));
-		metadata.addAttributeMetaData(new DefaultAttributeMetaData(POSITION, MolgenisFieldTypes.FieldTypeEnum.LONG));
-		metadata.addAttributeMetaData(new DefaultAttributeMetaData(REFERENCE, MolgenisFieldTypes.FieldTypeEnum.STRING));
-		metadata.addAttributeMetaData(new DefaultAttributeMetaData(ALTERNATIVE, MolgenisFieldTypes.FieldTypeEnum.STRING));
+		metadata.add(VcfRepository.CHROM_META);
+		metadata.add(VcfRepository.POS_META);
+		metadata.add(VcfRepository.REF_META);
+		metadata.add(VcfRepository.ALT_META);
 
 		return metadata;
 	}
+
+    @Override
+    protected boolean annotationDataExists()
+    {
+        return true;
+    }
 }

@@ -5,17 +5,18 @@
 <#assign js=['molgenis-wizard.js', 'bootstrap.file-input.js'] + javascripts>
 
 <@header css js/>
-	<div class="row">
+<div class="row">
+    <div class="col-md-12">
 		<div id="wizard">
 			<ol class="bwizard-steps clearfix" role="tablist">
 				<#list wizard.pages as wizardPage>
 					<#if wizardPage == wizard.currentPage>
 						<li role="tab" class="active">
-							<span class="badge inverse">${wizardPage_index + 1}</span> ${wizardPage.title}
+							<span class="badge inverse">${(wizardPage_index + 1)?html}</span> ${wizardPage.title?html}
 						</li>
 					<#else>
 						<li role="tab">
-							<span class="badge">${wizardPage_index + 1}</span> ${wizardPage.title}
+							<span class="badge">${(wizardPage_index + 1)?html}</span> ${wizardPage.title?html}
 						</li>
 					</#if>
 				</#list>
@@ -37,16 +38,17 @@
 			</#list>
 				
 			<ul class="pager bwizard-buttons">
-				<li class="previous<#if !wizard.previousButton.enabled> disabled</#if>" role="button">
-					<a href="${context_url}${wizard.previousButton.targetUri}">${wizard.previousButton.title}</a>
+				<li role="button" class="previous <#if !wizard.previousButton.enabled> disabled</#if>">
+					<a <#if wizard.previousButton.id?has_content>id="${wizard.previousButton.id?html}"</#if> href="${context_url?html}${wizard.previousButton.targetUri?html}">&larr; ${wizard.previousButton.title?html}</a>
 				</li>
 				<li class="next pull-right<#if !wizard.nextButton.enabled> disabled</#if>" role="button">
-					<a href="${context_url}${wizard.nextButton.targetUri}">${wizard.nextButton.title}</a>
+					<a <#if wizard.nextButton.id?has_content>id="${wizard.nextButton.id?html}"</#if> href="${context_url?html}${wizard.nextButton.targetUri?html}">${wizard.nextButton.title?html} &rarr;</a>
 				</li>
-				<li role="button" class="cancel pull-right">
-					<a href="${context_url}/restart">Restart</a>
+				<li class="restart pull-right" role="button">
+					<a href="${context_url?html}/restart">Restart</a>
 				</li>
 			</ul>
 		</div>
 	</div>
+</div>
 <@footer/>

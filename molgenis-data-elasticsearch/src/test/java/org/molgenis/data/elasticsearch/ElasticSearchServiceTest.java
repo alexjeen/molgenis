@@ -8,32 +8,44 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.elasticsearch.action.ListenableActionFuture;
+import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import org.molgenis.MolgenisFieldTypes;
-import org.molgenis.data.CrudRepository;
 import org.molgenis.data.DataService;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.Query;
 import org.molgenis.data.elasticsearch.ElasticSearchService.BulkProcessorFactory;
 import org.molgenis.data.elasticsearch.ElasticSearchService.IndexingMode;
 import org.molgenis.data.elasticsearch.index.EntityToSourceConverter;
 import org.molgenis.data.support.DataServiceImpl;
 import org.molgenis.data.support.DefaultEntityMetaData;
 import org.molgenis.data.support.MapEntity;
+import org.molgenis.data.support.NonDecoratingRepositoryDecoratorFactory;
+import org.molgenis.data.support.QueryImpl;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import com.google.common.collect.Lists;
 
 public class ElasticSearchServiceTest
 {
@@ -44,16 +56,20 @@ public class ElasticSearchServiceTest
 	private DataService dataService;
 
 	@BeforeMethod
-	public void beforeMethod()
+	public void beforeMethod() throws InterruptedException
 	{
 		indexName = "molgenis";
 		client = mock(Client.class);
+
 		entityToSourceConverter = mock(EntityToSourceConverter.class);
-		dataService = spy(new DataServiceImpl());
+		dataService = spy(new DataServiceImpl(new NonDecoratingRepositoryDecoratorFactory()));
 		searchService = spy(new ElasticSearchService(client, indexName, dataService, entityToSourceConverter, false));
 		BulkProcessorFactory bulkProcessorFactory = mock(BulkProcessorFactory.class);
+		BulkProcessor bulkProcessor = mock(BulkProcessor.class);
+		when(bulkProcessor.awaitClose(any(Long.class), any(TimeUnit.class))).thenReturn(true);
+		when(bulkProcessorFactory.create(client)).thenReturn(bulkProcessor);
 		ElasticSearchService.setBulkProcessorFactory(bulkProcessorFactory);
-		doNothing().when(searchService).refresh();
+		doNothing().when(searchService).refresh(any(String.class));
 	}
 
 	@BeforeClass
@@ -73,198 +89,72 @@ public class ElasticSearchServiceTest
 		MapEntity entity = createEntityAndRegisterSource(entityMetaData, "id0");
 
 		searchService.index(entity, entityMetaData, IndexingMode.ADD);
-
-		verify(client, times(1)).prepareIndex(eq(indexName), eq("entity"), any(String.class));
-		verify(searchService, times(0)).index(Arrays.asList(entity), entityMetaData, IndexingMode.ADD, false);
+		verify(searchService, times(1)).index(indexName, Arrays.asList(entity), entityMetaData,
+				ElasticSearchService.CrudType.ADD, true);
 	}
 
 	@Test
 	public void indexEntityUpdateNoRefs()
 	{
 		DefaultEntityMetaData entityMetaData = createEntityMeta("entity");
-
 		MapEntity entity = createEntityAndRegisterSource(entityMetaData, "id0");
+		when(dataService.getEntityNames()).thenReturn(Lists.newArrayList());
 
 		searchService.index(entity, entityMetaData, IndexingMode.UPDATE);
-		verify(client, times(1)).prepareIndex(eq(indexName), eq("entity"), any(String.class));
-		verify(searchService, times(0)).index(Arrays.asList(entity), entityMetaData, IndexingMode.UPDATE, false);
+		verify(searchService, times(1)).index(indexName, Arrays.asList(entity), entityMetaData,
+				ElasticSearchService.CrudType.UPDATE, true);
 	}
 
-	// FIXME fix tests
-	// @Test
-	// public void indexEntityUpdateRefEntity()
-	// {
-	// // Create metadata
-	// DefaultEntityMetaData refEntityMetaData = createEntityMeta("refEntity");
-	// DefaultEntityMetaData entityMetaData = createEntityMeta("entity");
-	// addReferenceToMetaData(entityMetaData, refEntityMetaData, "xrefattr");
-	//
-	// // Create repos
-	// CrudRepository refRepository = mockRepository(refEntityMetaData);
-	// CrudRepository repository = mockRepository(entityMetaData);
-	// addRepositories(refRepository, repository);
-	//
-	// // Create entities
-	// MapEntity refEntity = createEntityAndRegisterSource(refEntityMetaData, "refid");
-	// MapEntity entity = createEntityAndRegisterSource(entityMetaData, "entityId");
-	// entity.set("xrefattr", refEntity);
-	// Query q = new QueryImpl().eq("xrefattr", refEntity);
-	// when(repository.findAll(q)).thenReturn(Arrays.<Entity> asList(entity));
-	//
-	// try
-	// {
-	// searchService.index(refEntity, refEntityMetaData, IndexingMode.UPDATE);
-	// }
-	// catch (NullPointerException e)
-	// {
-	// fail("Tried to index unexpected entity", e);
-	// }
-	// verify(client, times(1)).prepareIndex(indexName, "refEntity", "refid");
-	// verify(searchService, times(1)).index(Arrays.asList(entity), entityMetaData, IndexingMode.UPDATE, false);
-	// }
-
-	// @Test
-	// public void indexEntityUpdateSelfReferenceDifferentEntities()
-	// {
-	// DefaultEntityMetaData entityMetaData = createEntityMeta("entity");
-	// addReferenceToMetaData(entityMetaData, entityMetaData, "xrefattr");
-	//
-	// MapEntity refEntity = createEntityAndRegisterSource(entityMetaData, "refId");
-	// MapEntity entity = createEntityAndRegisterSource(entityMetaData, "id");
-	// entity.set("xrefattr", refEntity);
-	//
-	// CrudRepository repository = mockRepository(entityMetaData);
-	// addRepositories(repository);
-	//
-	// Query q = new QueryImpl().eq("xrefattr", refEntity);
-	// when(repository.findAll(q)).thenReturn(Arrays.<Entity> asList(entity));
-	//
-	// try
-	// {
-	// searchService.index(refEntity, entityMetaData, IndexingMode.UPDATE);
-	// }
-	// catch (NullPointerException e)
-	// {
-	// fail("Tried to index unexpected entity", e);
-	// }
-	// verify(client, times(1)).prepareIndex(indexName, "entity", "refId");
-	// verify(searchService, times(1)).index(Arrays.asList(entity), entityMetaData, IndexingMode.UPDATE, false);
-	// }
-	//
-	// @Test
-	// public void indexEntityUpdateSelfReferenceSameEntity()
-	// {
-	// DefaultEntityMetaData entityMetaData = createEntityMeta("entity");
-	// addReferenceToMetaData(entityMetaData, entityMetaData, "xrefattr");
-	//
-	// MapEntity entity = createEntityAndRegisterSource(entityMetaData, "id");
-	// entity.set("xrefattr", entity);
-	//
-	// CrudRepository repository = mockRepository(entityMetaData);
-	//
-	// Query q = new QueryImpl().eq("xrefattr", entity);
-	// when(repository.findAll(q)).thenReturn(Arrays.<Entity> asList(entity));
-	//
-	// addRepositories(repository);
-	//
-	// try
-	// {
-	// searchService.index(entity, entityMetaData, IndexingMode.UPDATE);
-	// }
-	// catch (NullPointerException e)
-	// {
-	// fail("Tried to index unexpected entity", e);
-	// }
-	// verify(client, times(1)).prepareIndex(indexName, "entity", "id");
-	// // TODO: is dit wenselijk of een bug?
-	// verify(searchService, times(1)).index(Arrays.asList(entity), entityMetaData, IndexingMode.UPDATE, false);
-	// }
-	//
-	// @Test
-	// public void indexEntityUpdateShouldNotQueryOtherRepositories()
-	// {
-	// DefaultEntityMetaData entityMetaData = createEntityMeta("entity");
-	// DefaultEntityMetaData otherMetaData = createEntityMeta("other");
-	// DefaultEntityMetaData otherRefMetaData = createEntityMeta("otherRef");
-	// addReferenceToMetaData(otherMetaData, otherRefMetaData, "xrefattr");
-	//
-	// MapEntity entity = createEntityAndRegisterSource(entityMetaData, "id");
-	//
-	// CrudRepository repository = mockRepository(entityMetaData);
-	// CrudRepository otherRepository = mockRepository(otherMetaData);
-	// CrudRepository otherRefRepository = mockRepository(otherRefMetaData);
-	//
-	// addRepositories(repository, otherRepository, otherRefRepository);
-	//
-	// try
-	// {
-	// searchService.index(entity, entityMetaData, IndexingMode.UPDATE);
-	// }
-	// catch (NullPointerException e)
-	// {
-	// fail("Tried to index unexpected entity", e);
-	// }
-	//
-	// verify(otherRepository, times(0)).findAll(any(Query.class));
-	// verify(client, times(1)).prepareIndex(indexName, "entity", "id");
-	// }
-	//
-	// @Test
-	// public void indexEntityUpdateRefEntityTwoReferringEntityClasses()
-	// {
-	// // Create metadata
-	// DefaultEntityMetaData refEntityMetaData = createEntityMeta("refEntity");
-	// DefaultEntityMetaData entityMetaData = createEntityMeta("entity");
-	// DefaultEntityMetaData entity2MetaData = createEntityMeta("entity2");
-	// addReferenceToMetaData(entityMetaData, refEntityMetaData, "xrefattr");
-	// addReferenceToMetaData(entity2MetaData, refEntityMetaData, "xrefattr2");
-	//
-	// // Create repos
-	// CrudRepository refRepository = mockRepository(refEntityMetaData);
-	// CrudRepository repository = mockRepository(entityMetaData);
-	// CrudRepository repository2 = mockRepository(entity2MetaData);
-	// addRepositories(refRepository, repository, repository2);
-	//
-	// // Create entities
-	// MapEntity refEntity = createEntityAndRegisterSource(refEntityMetaData, "refid");
-	// MapEntity entity = createEntityAndRegisterSource(entityMetaData, "entityId");
-	// entity.set("xrefattr", refEntity);
-	// MapEntity entity2 = createEntityAndRegisterSource(entityMetaData, "entity2Id");
-	// entity2.set("xrefattr2", refEntity);
-	//
-	// Query q = new QueryImpl().eq("xrefattr", refEntity);
-	// when(repository.findAll(q)).thenReturn(Arrays.<Entity> asList(entity));
-	// Query q2 = new QueryImpl().eq("xrefattr2", refEntity);
-	// when(repository2.findAll(q2)).thenReturn(Arrays.<Entity> asList(entity2));
-	// try
-	// {
-	// searchService.index(refEntity, refEntityMetaData, IndexingMode.UPDATE);
-	// }
-	// catch (NullPointerException e)
-	// {
-	// fail("Tried to index unexpected entity", e);
-	// }
-	// verify(client, times(1)).prepareIndex(indexName, "refEntity", "refid");
-	// verify(searchService, times(1)).index(Arrays.asList(entity), entityMetaData, IndexingMode.UPDATE, false);
-	// }
-
-	private void addRepositories(CrudRepository... repositories)
+	@SuppressWarnings("unchecked")
+	@Test
+	public void search()
 	{
-		List<String> repositoryNames = new ArrayList<String>();
-		for (CrudRepository repository : repositories)
+		int batchSize = 1000;
+		int totalSize = batchSize + 1;
+		SearchRequestBuilder searchRequestBuilder = mock(SearchRequestBuilder.class);
+		String idAttrName = "id";
+
+		ListenableActionFuture<SearchResponse> value1 = mock(ListenableActionFuture.class);
+		SearchResponse searchResponse1 = mock(SearchResponse.class);
+		SearchHits searchHits1 = mock(SearchHits.class);
+		SearchHit[] hits1 = new SearchHit[batchSize];
+		for (int i = 0; i < batchSize; ++i)
 		{
-			dataService.addRepository(repository);
-			repositoryNames.add(repository.getName());
+			SearchHit searchHit = mock(SearchHit.class);
+			when(searchHit.getSource()).thenReturn(Collections.<String, Object> singletonMap(idAttrName, i + 1));
+			hits1[i] = searchHit;
 		}
-		when(dataService.getEntityNames()).thenReturn(repositoryNames);
-	}
+		when(searchHits1.getHits()).thenReturn(hits1);
+		when(searchHits1.getTotalHits()).thenReturn(Long.valueOf(totalSize));
+		when(searchResponse1.getHits()).thenReturn(searchHits1);
+		when(value1.actionGet()).thenReturn(searchResponse1);
 
-	private CrudRepository mockRepository(DefaultEntityMetaData refEntityMetaData)
-	{
-		CrudRepository refRepository = when(mock(CrudRepository.class).getName()).thenReturn(
-				refEntityMetaData.getName()).getMock();
-		when(refRepository.getEntityMetaData()).thenReturn(refEntityMetaData);
-		return refRepository;
+		ListenableActionFuture<SearchResponse> value2 = mock(ListenableActionFuture.class);
+		SearchResponse searchResponse2 = mock(SearchResponse.class);
+		SearchHits searchHits2 = mock(SearchHits.class);
+
+		SearchHit[] hits2 = new SearchHit[totalSize - batchSize];
+		SearchHit searchHit = mock(SearchHit.class);
+		when(searchHit.getSource()).thenReturn(Collections.<String, Object> singletonMap(idAttrName, batchSize + 1));
+		hits2[0] = searchHit;
+		when(searchHits2.getHits()).thenReturn(hits2);
+		when(searchHits2.getTotalHits()).thenReturn(Long.valueOf(totalSize));
+		when(searchResponse2.getHits()).thenReturn(searchHits2);
+		when(value2.actionGet()).thenReturn(searchResponse2);
+
+		when(searchRequestBuilder.execute()).thenReturn(value1, value2);
+		when(client.prepareSearch(indexName)).thenReturn(searchRequestBuilder);
+
+		DefaultEntityMetaData entityMetaData = new DefaultEntityMetaData("entity");
+		entityMetaData.addAttribute(idAttrName).setDataType(MolgenisFieldTypes.INT).setIdAttribute(true);
+		Query q = new QueryImpl();
+		Iterable<Entity> searchResults = searchService.search(q, entityMetaData);
+		Iterator<Entity> it = searchResults.iterator();
+		for (int i = 1; i <= totalSize; ++i)
+		{
+			assertEquals(it.next().getIdValue(), i);
+		}
+		assertFalse(it.hasNext());
 	}
 
 	private MapEntity createEntityAndRegisterSource(final EntityMetaData metaData, final String id)
@@ -287,12 +177,6 @@ public class ElasticSearchServiceTest
 		source.put(idAttributeName, entity.get(idAttributeName));
 		source.put("type", entityName);
 		return source;
-	}
-
-	private void addReferenceToMetaData(final DefaultEntityMetaData from, final DefaultEntityMetaData to,
-			final String attributeName)
-	{
-		from.addAttribute(attributeName).setDataType(MolgenisFieldTypes.XREF).setRefEntity(to);
 	}
 
 	private DefaultEntityMetaData createEntityMeta(String refEntityName)

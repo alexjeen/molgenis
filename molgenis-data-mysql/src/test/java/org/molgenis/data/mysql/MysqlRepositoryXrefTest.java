@@ -1,6 +1,8 @@
 package org.molgenis.data.mysql;
 
 import org.molgenis.MolgenisFieldTypes;
+import org.molgenis.data.DataService;
+import org.molgenis.data.EditableEntityMetaData;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.support.DefaultEntityMetaData;
@@ -16,23 +18,22 @@ import com.google.common.collect.Lists;
 public class MysqlRepositoryXrefTest extends MysqlRepositoryAbstractDatatypeTest
 {
 	@Autowired
-	MysqlRepositoryCollection coll;
+	DataService dataService;
 
 	@Override
 	public EntityMetaData createMetaData()
 	{
 		DefaultEntityMetaData refEntity = new DefaultEntityMetaData("StringTarget");
 		refEntity.setLabelAttribute("label");
-		refEntity.setIdAttribute("identifier");
-		refEntity.addAttribute("identifier").setNillable(false);
+		refEntity.addAttribute("identifier").setNillable(false).setIdAttribute(true);
+		refEntity.addAttribute("label");
 
 		DefaultEntityMetaData refEntity2 = new DefaultEntityMetaData("IntTarget");
-		refEntity2.setIdAttribute("identifier");
-		refEntity2.addAttribute("identifier").setDataType(MolgenisFieldTypes.INT).setNillable(false);
+		refEntity2.addAttribute("identifier").setDataType(MolgenisFieldTypes.INT).setNillable(false)
+				.setIdAttribute(true);
 
-		DefaultEntityMetaData xrefEntity = new DefaultEntityMetaData("XrefTest").setLabel("Xref Test");
-		xrefEntity.setIdAttribute("identifier");
-		xrefEntity.addAttribute("identifier").setNillable(false);
+		EditableEntityMetaData xrefEntity = new DefaultEntityMetaData("XrefTest").setLabel("Xref Test");
+		xrefEntity.addAttribute("identifier").setNillable(false).setIdAttribute(true);
 		xrefEntity.addAttribute("stringRef").setDataType(MolgenisFieldTypes.XREF).setRefEntity(refEntity)
 				.setNillable(false);
 		xrefEntity.addAttribute("intRef").setDataType(MolgenisFieldTypes.XREF).setRefEntity(refEntity2);
@@ -55,28 +56,33 @@ public class MysqlRepositoryXrefTest extends MysqlRepositoryAbstractDatatypeTest
 	@Test
 	public void test() throws Exception
 	{
-		coll.dropEntityMetaData(getMetaData().getName());
-		coll.dropEntityMetaData(getMetaData().getAttribute("stringRef").getRefEntity().getName());
-		coll.dropEntityMetaData(getMetaData().getAttribute("intRef").getRefEntity().getName());
+		// coll.deleteEntityMeta(getMetaData().getName());
+		// coll.deleteEntityMeta(getMetaData().getAttribute("stringRef").getRefEntity().getName());
+		// coll.deleteEntityMeta(getMetaData().getAttribute("intRef").getRefEntity().getName());
 
 		// create
-		MysqlRepository stringRepo = coll.add(getMetaData().getAttribute("stringRef").getRefEntity());
-		MysqlRepository intRepo = coll.add(getMetaData().getAttribute("intRef").getRefEntity());
-		MysqlRepository xrefRepo = coll.add(getMetaData());
+		MysqlRepository stringRepo = (MysqlRepository) dataService.getMeta().addEntityMeta(
+				getMetaData().getAttribute("stringRef").getRefEntity());
+		MysqlRepository intRepo = (MysqlRepository) dataService.getMeta().addEntityMeta(
+				getMetaData().getAttribute("intRef").getRefEntity());
+		MysqlRepository xrefRepo = (MysqlRepository) dataService.getMeta().addEntityMeta(getMetaData());
 
 		Assert.assertEquals(xrefRepo.getCreateSql(), createSql());
 
-		Assert.assertEquals(xrefRepo.getCreateFKeySql().get(0),
-				"ALTER TABLE XrefTest ADD FOREIGN KEY (`stringRef`) REFERENCES `StringTarget`(`identifier`)");
+		Assert.assertEquals(xrefRepo.getCreateFKeySql(getMetaData().getAttribute("stringRef")),
+				"ALTER TABLE `XrefTest` ADD FOREIGN KEY (`stringRef`) REFERENCES `StringTarget`(`identifier`)");
 
-		xrefRepo.drop();
-		stringRepo.drop();
-		intRepo.drop();
+		// simply dropping the repos won't work because the references keep existing after the tables are deleted, so we
+		// use the data service
+		dataService.getMeta().deleteEntityMeta(xrefRepo.getName());
+		dataService.getMeta().deleteEntityMeta(stringRepo.getName());
+		dataService.getMeta().deleteEntityMeta(intRepo.getName());
 
 		Assert.assertEquals(xrefRepo.getCreateSql(), createSql());
-		stringRepo.create();
-		intRepo.create();
-		xrefRepo.create();
+
+		dataService.getMeta().addEntityMeta(getMetaData().getAttribute("intRef").getRefEntity());
+		dataService.getMeta().addEntityMeta(getMetaData().getAttribute("stringRef").getRefEntity());
+		dataService.getMeta().addEntityMeta(getMetaData());
 
 		// add records
 		Entity entity = new MapEntity();
@@ -115,12 +121,11 @@ public class MysqlRepositoryXrefTest extends MysqlRepositoryAbstractDatatypeTest
 
 		for (Entity e : xrefRepo)
 		{
-			logger.debug(e);
+			LOG.debug(e.toString());
 
 			Assert.assertNotNull(e.getEntity("stringRef"));
 			Assert.assertEquals(e.getEntity("stringRef").get("identifier"), "ref1");
-			Assert.assertEquals(e.get("stringRef"), "ref1");
-			Assert.assertEquals(e.get("intRef"), 1);
+			Assert.assertEquals(e.getEntity("intRef").get("identifier"), 1);
 			break;
 		}
 

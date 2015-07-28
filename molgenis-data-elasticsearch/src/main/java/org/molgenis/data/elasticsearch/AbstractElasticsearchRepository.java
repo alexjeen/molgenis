@@ -1,30 +1,24 @@
 package org.molgenis.data.elasticsearch;
 
-import static org.molgenis.data.elasticsearch.util.ElasticsearchEntityUtils.toElasticsearchId;
-import static org.molgenis.data.elasticsearch.util.ElasticsearchEntityUtils.toElasticsearchIds;
-
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 
+import org.elasticsearch.common.primitives.Ints;
 import org.molgenis.data.AggregateQuery;
 import org.molgenis.data.AggregateResult;
-import org.molgenis.data.Aggregateable;
-import org.molgenis.data.CrudRepository;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
+import org.molgenis.data.IndexedRepository;
 import org.molgenis.data.Query;
 import org.molgenis.data.elasticsearch.ElasticSearchService.IndexingMode;
-import org.molgenis.data.support.ConvertingIterable;
+import org.molgenis.data.elasticsearch.util.ElasticsearchEntityUtils;
 import org.molgenis.data.support.QueryImpl;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Iterables;
 
-public abstract class AbstractElasticsearchRepository implements CrudRepository, Aggregateable
+public abstract class AbstractElasticsearchRepository implements IndexedRepository
 {
-	public static final String BASE_URL = "elasticsearch://";
-
 	protected final SearchService elasticSearchService;
 
 	public AbstractElasticsearchRepository(SearchService elasticSearchService)
@@ -35,27 +29,6 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 
 	@Override
 	public abstract EntityMetaData getEntityMetaData();
-
-	@Override
-	public <E extends Entity> Iterable<E> iterator(Class<E> clazz)
-	{
-		@SuppressWarnings("resource")
-		final AbstractElasticsearchRepository self = this;
-		return new ConvertingIterable<E>(clazz, new Iterable<Entity>()
-		{
-			@Override
-			public Iterator<Entity> iterator()
-			{
-				return self.iterator();
-			}
-		});
-	}
-
-	@Override
-	public String getUrl()
-	{
-		return BASE_URL + getName() + '/';
-	}
 
 	@Override
 	public long count()
@@ -82,12 +55,6 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	}
 
 	@Override
-	public <E extends Entity> Iterable<E> findAll(Query q, Class<E> clazz)
-	{
-		return new ConvertingIterable<E>(clazz, findAll(q));
-	}
-
-	@Override
 	public Entity findOne(Query q)
 	{
 		Iterable<Entity> entities = elasticSearchService.search(q, getEntityMetaData());
@@ -104,26 +71,6 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	public Iterable<Entity> findAll(Iterable<Object> ids)
 	{
 		return elasticSearchService.get(ids, getEntityMetaData());
-	}
-
-	@Override
-	public <E extends Entity> Iterable<E> findAll(Iterable<Object> ids, Class<E> clazz)
-	{
-		return new ConvertingIterable<E>(clazz, findAll(ids));
-	}
-
-	@Override
-	public <E extends Entity> E findOne(Object id, Class<E> clazz)
-	{
-		Entity entity = findOne(id);
-		return entity != null ? new ConvertingIterable<E>(clazz, Arrays.asList(entity)).iterator().next() : null;
-	}
-
-	@Override
-	public <E extends Entity> E findOne(Query q, Class<E> clazz)
-	{
-		Entity entity = findOne(q);
-		return entity != null ? new ConvertingIterable<E>(clazz, Arrays.asList(entity)).iterator().next() : null;
 	}
 
 	@Override
@@ -151,7 +98,6 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	}
 
 	@Override
-	@Transactional
 	public void add(Entity entity)
 	{
 		elasticSearchService.index(entity, getEntityMetaData(), IndexingMode.ADD);
@@ -162,9 +108,9 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	@Transactional
 	public Integer add(Iterable<? extends Entity> entities)
 	{
-		elasticSearchService.index(entities, getEntityMetaData(), IndexingMode.ADD);
+		long nrIndexedEntities = elasticSearchService.index(entities, getEntityMetaData(), IndexingMode.ADD);
 		elasticSearchService.refresh();
-		return Iterables.size(entities); // TODO solve possible performance bottleneck
+		return Ints.checkedCast(nrIndexedEntities);
 	}
 
 	@Override
@@ -215,7 +161,7 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	@Transactional
 	public void deleteById(Object id)
 	{
-		elasticSearchService.deleteById(toElasticsearchId(id), getEntityMetaData());
+		elasticSearchService.deleteById(ElasticsearchEntityUtils.toElasticsearchId(id), getEntityMetaData());
 		elasticSearchService.refresh();
 	}
 
@@ -223,7 +169,7 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	@Transactional
 	public void deleteById(Iterable<Object> ids)
 	{
-		elasticSearchService.deleteById(toElasticsearchIds(ids), getEntityMetaData());
+		elasticSearchService.deleteById(ElasticsearchEntityUtils.toElasticsearchIds(ids), getEntityMetaData());
 		elasticSearchService.refresh();
 	}
 
@@ -231,7 +177,20 @@ public abstract class AbstractElasticsearchRepository implements CrudRepository,
 	@Transactional
 	public void deleteAll()
 	{
-		elasticSearchService.delete(getEntityMetaData());
+		elasticSearchService.delete(getEntityMetaData().getName());
 		elasticSearchService.refresh();
+	}
+
+	@Override
+	public void create()
+	{
+		elasticSearchService.createMappings(getEntityMetaData());
+
+	}
+
+	@Override
+	public void drop()
+	{
+		elasticSearchService.delete(getEntityMetaData().getName());
 	}
 }

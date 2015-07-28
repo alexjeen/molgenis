@@ -3,9 +3,10 @@ package org.molgenis.script;
 import java.util.Map;
 
 import org.molgenis.data.DataService;
-import org.molgenis.data.mysql.MysqlRepositoryCollection;
 import org.molgenis.data.support.QueryImpl;
-import org.molgenis.security.runas.RunAsSystem;
+import org.molgenis.security.core.runas.RunAsSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -21,14 +22,12 @@ public class ScriptRunnerFactory
 {
 	private final Map<String, ScriptRunner> scriptRunners = Maps.newHashMap();
 	private final DataService dataService;
+	private static final Logger LOG = LoggerFactory.getLogger(ScriptRunnerFactory.class);
 
 	@Autowired
-	public ScriptRunnerFactory(MysqlRepositoryCollection mysqlRepositoryCollection, DataService dataService)
+	public ScriptRunnerFactory(DataService dataService)
 	{
 		this.dataService = dataService;
-		mysqlRepositoryCollection.add(ScriptParameter.META_DATA);
-		mysqlRepositoryCollection.add(ScriptType.META_DATA);
-		mysqlRepositoryCollection.add(Script.META_DATA);
 	}
 
 	@RunAsSystem
@@ -38,7 +37,8 @@ public class ScriptRunnerFactory
 
 		if (dataService.count(ScriptType.ENTITY_NAME, new QueryImpl().eq(ScriptType.NAME, type)) == 0)
 		{
-			dataService.add(ScriptType.ENTITY_NAME, new ScriptType(type));
+			LOG.info("Registering Script type {}.", type);
+			dataService.add(ScriptType.ENTITY_NAME, new ScriptType(type, dataService));
 		}
 	}
 

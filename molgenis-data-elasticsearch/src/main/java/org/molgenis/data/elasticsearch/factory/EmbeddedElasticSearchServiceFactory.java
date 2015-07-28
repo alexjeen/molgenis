@@ -6,7 +6,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 
-import org.apache.log4j.Logger;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.ImmutableSettings.Builder;
@@ -14,8 +13,9 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 import org.molgenis.data.DataService;
 import org.molgenis.data.elasticsearch.ElasticSearchService;
-import org.molgenis.data.elasticsearch.SearchService;
 import org.molgenis.data.elasticsearch.index.EntityToSourceConverter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Factory for creating an embedded ElasticSearch server service. An elastic search config file named
@@ -26,9 +26,10 @@ import org.molgenis.data.elasticsearch.index.EntityToSourceConverter;
  */
 public class EmbeddedElasticSearchServiceFactory implements Closeable
 {
-	private static final Logger LOG = Logger.getLogger(EmbeddedElasticSearchServiceFactory.class);
+	private static final Logger LOG = LoggerFactory.getLogger(EmbeddedElasticSearchServiceFactory.class);
+
 	private static final String CONFIG_FILE_NAME = "elasticsearch.yml";
-	private static final String DEFAULT_INDEX_NAME = "molgenis";
+	public static final String DEFAULT_INDEX_NAME = "molgenis";
 	private final Client client;
 	private final Node node;
 	private final String indexName;
@@ -75,9 +76,14 @@ public class EmbeddedElasticSearchServiceFactory implements Closeable
 		LOG.info("Embedded elasticsearch server started, data path=[" + settings.get("path.data") + "]");
 	}
 
-	public SearchService create(DataService dataService, EntityToSourceConverter entityToSourceConverter)
+	public ElasticSearchService create(DataService dataService, EntityToSourceConverter entityToSourceConverter)
 	{
 		return new ElasticSearchService(client, indexName, dataService, entityToSourceConverter);
+	}
+
+	public Client getClient()
+	{
+		return client;
 	}
 
 	@Override

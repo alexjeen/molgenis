@@ -65,29 +65,6 @@
 		return i18nObj;
 	};
 
-	/*
-	 * Create a datasets indexer alert when indexer is running.
-	 */
-	molgenis.createDatasetsindexerAlert = function() {
-		$.get("/dataindexerstatus", function(response) {
-			if (response && response.isRunning === true) {
-				showDatasetsindexerStatusMessage();
-			}
-		});
-
-		function showDatasetsindexerStatusMessage() {
-			$.get("/dataindexerstatus", function(response) {
-				$('.datasetsindexerAlerts').empty();
-				if (response.isRunning === true) {
-					setTimeout(showDatasetsindexerStatusMessage, 3000);
-				}
-				molgenis.createAlert([ {
-					'message' : response.message
-				} ], response.type, $('.datasetsindexerAlerts'));
-			});
-		}
-	};
-
 	/**
 	 * Returns all atomic attributes. In case of compound attributes (attributes
 	 * consisting of multiple atomic attributes) only the descendant atomic
@@ -139,6 +116,34 @@
 		}
 		createAtomicAttributesRec(attributes);
 		return compoundAttributes;
+	};
+	
+	molgenis.getAllAttributes = function(attributes, restClient) {
+		var tree = [];
+		function createAttributesRec(attributes) {
+			$.each(attributes, function(i, attribute) {
+				tree.push(attribute);
+				if (attribute.fieldType === 'COMPOUND') {
+					// FIXME improve performance by retrieving async
+					attribute = restClient.get(attribute.href, {
+						'expand' : [ 'attributes' ]
+					});
+					createAttributesRec(attribute.attributes);
+				}
+			});
+		}
+		createAttributesRec(attributes);
+		return tree;
+	};
+	
+	molgenis.getAttributeLabel = function(attribute) {
+		var label = attribute.label || attribute.name;
+		if (attribute.parent) {
+			var parentLabel = attribute.parent.label || attribute.parent.name;
+			label = parentLabel + '.' + label;
+		}
+		
+		return label;
 	};
 
 	/*
@@ -213,7 +218,32 @@
 		});
 
 		return writable;
-	};	
+	};
+	
+	molgenis.isRefAttr = function(attr) {
+		switch(attr.fieldType) {
+			case 'CATEGORICAL':
+			case 'CATEGORICAL_MREF':
+			case 'MREF':
+			case 'XREF':
+			case 'FILE':
+				return true;
+			default:
+				return false;
+		}  
+	};
+	
+	molgenis.isXrefAttr = function(attr) {
+		return attr.fieldType === 'CATEGORICAL' || attr.fieldType === 'XREF' || attr.fieldType === 'FILE';
+	};
+	
+	molgenis.isMrefAttr = function(attr) {
+		return attr.fieldType === 'CATEGORICAL_MREF' || attr.fieldType === 'MREF';
+	};
+	
+	molgenis.isCompoundAttr = function(attr) {
+		return attr.fieldType === 'COMPOUND';
+	};
 }($, window.top.molgenis = window.top.molgenis || {}));
 
 // Add endsWith function to the string class
@@ -245,7 +275,9 @@ function getCurrentTimezoneOffset() {
 	var entityMap = {
 		"&" : "&amp;",
 		"<" : "&lt;",
+		"\u2264": "&lte;",
 		">" : "&gt;",
+		"\u2265": "&gte;",
 		'"' : '&quot;',
 		"'" : '&#39;',
 		"/" : '&#x2F;'
@@ -262,47 +294,53 @@ function getCurrentTimezoneOffset() {
  * Create a table cell to show data of a certain type Is used by the
  * dataexplorer and the forms plugin
  */
-function formatTableCellValue(value, dataType, editable) {
-	if (dataType.toLowerCase() == 'bool') {
-		var checked = (value === true);
-		value = '<input type="checkbox" ';
-		if (checked) {
-			value = value + 'checked ';
+function formatTableCellValue(rawValue, dataType, editable, nillable) {
+	var htmlElement;
+	
+	if (dataType === undefined) {
+		return '<span>&nbsp;</span>';
+	}
+	else if (dataType.toLowerCase() == 'bool') {
+		htmlElement = '<input type="checkbox" ';
+		if (rawValue === true) {
+			htmlElement += 'checked ';
 		}
 		if (editable !== true) {
-			value = value + 'disabled="disabled"';
+			htmlElement += 'disabled="disabled"';
 		}
-
-		return value + '/>';
+		
+		htmlElement += '/>';
+		
+		if(dataType.toLowerCase() == 'bool' && nillable === true && (rawValue === undefined || rawValue === '')) {
+			htmlElement = $(htmlElement);
+			htmlElement.prop('indeterminate', true);
+		}
+		
+		return htmlElement;
 	}
-
-	if (typeof value === 'undefined' || value === null) {
-		return '';
+	if (typeof rawValue === 'undefined' || rawValue === null) {
+		return '<span>&nbsp;</span>';
 	}
 
 	if (dataType.toLowerCase() == "hyperlink") {
-		value = '<a target="_blank" href="' + value + '">' + htmlEscape(value)
-				+ '</a>';
+		return htmlElement = '<a target="_blank" href="' + rawValue + '">' + htmlEscape(rawValue) + '</a>';
 
 	} else if (dataType.toLowerCase() == "email") {
-		value = '<a href="mailto:' + value + '">' + htmlEscape(value) + '</a>';
+		return htmlElement = '<a href="mailto:' + rawValue + '">' + htmlEscape(rawValue) + '</a>';
 
 	} else if (dataType.toLowerCase() != 'html') {
-
-		if (value.length > 50) {
-			var abbr = htmlEscape(abbreviate(value, 50));
-			value = '<span class="show-popover"  data-content="'
-					+ htmlEscape(value) + '" data-toggle="popover">' + abbr
+		if (rawValue.length > 50) {
+			var abbr = htmlEscape(abbreviate(rawValue, 50));
+			return htmlElement = '<span class="show-popover"  data-content="'
+					+ htmlEscape(rawValue) + '" data-toggle="popover">' + abbr
 					+ "</span>";
 		} else {
-			value = htmlEscape(value);
+			return '<span>' + htmlEscape(rawValue) + '</span>';
 		}
 
 	} else {
-		value = htmlEscape(value);
+		return '<span>' + htmlEscape(rawValue) + '</span>';
 	}
-
-	return value;
 }
 
 /**
@@ -330,6 +368,8 @@ function abbreviate(s, maxLength) {
  *            input value
  * @param lbl
  *            input label (for checkbox and radio inputs)
+ *            
+ * @deprecated use AttributeControl.js            
  */
 function createInput(attr, attrs, val, lbl) {
 	function createBasicInput(type, attrs, val) {
@@ -366,9 +406,9 @@ function createInput(attr, attrs, val, lbl) {
 		        .appendTo($div);
 		}
 		$('<span>').addClass('input-group-addon datepickerbutton')
-		    .append($('<span>').addClass('glyphicon glyp2icon-calendar'))
+		    .append($('<span>').addClass('glyphicon glyphicon-calendar'))
 		    .appendTo($div);
-		$div.datetimepicker(dataType === 'DATE' ? { pickTime : false } : { pickTime : true, useSeconds : true });
+		$div.datetimepicker(dataType === 'DATE' ? { format : 'YYYY-MM-DD' } : { format : 'YYYY-MM-DDTHH:mm:ssZZ' });
 		return $div;
 	case 'DECIMAL':
 		var input = createBasicInput('number', $.extend({}, attrs, {'step': 'any'}), val).addClass('form-control');
@@ -395,6 +435,7 @@ function createInput(attr, attrs, val, lbl) {
 	case 'ENUM':
 	case 'SCRIPT':
 		return createBasicInput('text', attrs, val).addClass('form-control');
+	case 'CATEGORICAL_MREF':
 	case 'MREF':
 	case 'XREF':
 		return createBasicInput('hidden', attrs, val).addClass('form-control');
@@ -415,32 +456,32 @@ function createInput(attr, attrs, val, lbl) {
 	};
 
 	molgenis.RestClient.prototype.get = function(resourceUri, options) {
-		return this._get(resourceUri, options);
+		return this._get(resourceUri, options, false);
 	};
 
-	molgenis.RestClient.prototype.getAsync = function(resourceUri, options,
-			callback) {
-		this._get(resourceUri, options, callback);
+	molgenis.RestClient.prototype.getAsync = function(resourceUri, options, callback) {
+		return this._get(resourceUri, options, true, callback);
 	};
 
-	molgenis.RestClient.prototype._get = function(resourceUri, options,
-			callback) {
+	molgenis.RestClient.prototype._get = function(resourceUri, options, async, callback) {
 		var resource = null;
-
-		var async = callback !== undefined;
 		
 		var config = {
 			'dataType' : 'json',
 			'cache' : true,
-			'async' : async,
-			'success' : function(data) {
-				if (async)
-					callback(data);
-				else
-					resource = data;
-			}
+			'async' : async
 		};
-
+		
+		if(callback) {
+			config['success'] = function(data) {
+				callback(data);
+			};
+		} else if(async === false) {
+			config['success'] = function(data) {
+				resource = data;
+			};
+		}
+		
 		// tunnel get requests with options through a post,
 		// because it might not fit in the URL
 		if(options) {
@@ -474,10 +515,12 @@ function createInput(attr, attrs, val, lbl) {
 			});
 		}
 
-		this._ajax(config);
+		var promise = this._ajax(config);
 
-		if (!async)
+		if (async === false)
 			return resource;
+		else
+			return promise;
 	};
 
 	molgenis.RestClient.prototype._ajax = function(config) {
@@ -489,7 +532,7 @@ function createInput(attr, attrs, val, lbl) {
 			});
 		}
 
-		$.ajax(config);
+		return $.ajax(config);
 	};
 
 	molgenis.RestClient.prototype._toApiUri = function(resourceUri, options) {
@@ -519,23 +562,24 @@ function createInput(attr, attrs, val, lbl) {
 	};
 
 	molgenis.RestClient.prototype.remove = function(href, callback) {
-		this._ajax({
+		return this._ajax({
 			type : 'POST',
 			url : href,
 			data : '_method=DELETE',
 			async : false,
-			success : callback.success,
-			error : callback.error
+			success : callback && callback.success ? callback.success : function() {},
+			error : callback && callback.error ? callback.error : function() {}
 		});
 	};
-
-	molgenis.RestClient.prototype.update = function(href, entity, callback) {
-		this._ajax({
+	
+	molgenis.RestClient.prototype.update = function(href, entity, callback, showSpinner) {
+		return this._ajax({
 			type : 'POST',
 			url : href + '?_method=PUT',
 			contentType : 'application/json',
 			data : JSON.stringify(entity),
-			async : false,
+			async : true,
+			showSpinner: showSpinner,
 			success : callback && callback.success ? callback.success : function() {},
 			error : callback && callback.error ? callback.error : function() {}
 		});
@@ -588,15 +632,206 @@ function createInput(attr, attrs, val, lbl) {
 			}
 		});
 	};
+}($, window.top.molgenis = window.top.molgenis || {}));
 
+(function($, molgenis) {
+	"use strict";
+
+	var apiBaseUri = '/api/v2/';
+	
+	var createAttrsValue = function(attrs) {
+		var items = [];
+		for (var key in attrs) {
+			if (attrs.hasOwnProperty(key)) {
+				if(attrs[key]) {
+					if(attrs[key] === '*') {
+						items.push(encodeURIComponent(key) + '(*)'); // do not encode wildcard and parenthesis
+					} else {
+						items.push(encodeURIComponent(key) + '(' + createAttrsValue(attrs[key]) + ')'); // do not encode parenthesis	
+					}					
+				} else {
+					items.push(encodeURIComponent(key));
+				}
+			}
+		}
+		return items.join(','); // do not encode comma
+	};
+	
+	var toRsqlValue = function(value) {
+		var rsqlValue;
+		if (value.indexOf('"') !== -1 || value.indexOf('\'') !== -1 || value.indexOf('(') !== -1 || value.indexOf(')') !== -1 || value.indexOf(';') !== -1
+				|| value.indexOf(',') !== -1 || value.indexOf('=') !== -1 || value.indexOf('!') !== -1 || value.indexOf('~') !== -1 || value.indexOf('<') !== -1
+				|| value.indexOf('>') !== -1 || value.indexOf(' ') !== -1) {
+			rsqlValue = '"' + encodeURIComponent(value) + '"';
+		} else {
+			rsqlValue = encodeURIComponent(value);
+		}
+		return rsqlValue;
+	};
+	
+	var createRsqlQuery = function(rules) {
+		var rsql = '';
+		
+		// simplify query
+		while(rules.length === 1 && rules[0].operator === 'NESTED') {
+			rules = rules[0].nestedRules;
+		}
+		
+		for(var i = 0; i < rules.length; ++i) {
+			var rule = rules[i];
+			switch(rule.operator) {
+				case 'SEARCH':
+					var field = rule.field !== undefined ? rule.field : '*';
+					rsql += encodeURIComponent(field) + '=q=' + toRsqlValue(rule.value);
+					break;
+				case 'EQUALS':
+					rsql += encodeURIComponent(rule.field) + '==' + toRsqlValue(rule.value);
+					break;
+				case 'IN':
+					rsql += encodeURIComponent(rule.field) + '=in=' + '(' + $.map(rule.value, function(value) {
+						return toRsqlValue(value);
+					}).join(',') + ')';
+					break;
+				case 'LESS':
+					rsql += encodeURIComponent(rule.field) + '=lt=' + toRsqlValue(rule.value);
+					break;
+				case 'LESS_EQUAL':
+					rsql += encodeURIComponent(rule.field) + '=le=' + toRsqlValue(rule.value);
+					break;
+				case 'GREATER':
+					rsql += encodeURIComponent(rule.field) + '=gt=' + toRsqlValue(rule.value);
+					break;
+				case 'GREATER_EQUAL':
+					rsql += encodeURIComponent(rule.field) + '=ge=' + toRsqlValue(rule.value);
+					break;
+				case 'RANGE':
+					rsql += encodeURIComponent(rule.field) + '=rng=' + '(' + toRsqlValue(rule.value[0]) + ',' + toRsqlValue(rule.value[1]) + ')';
+					break;
+				case 'LIKE':
+					rsql += encodeURIComponent(rule.field) + '=like=' + toRsqlValue(rule.value);
+					break;
+				case 'NOT':
+					rsql += encodeURIComponent(rule.field) + '!=' + toRsqlValue(rule.value);
+					break;
+				case 'AND':
+					// ignore dangling AND rule
+					if(i > 0 && i < rules.length - 1) {
+						rsql += ';';
+					}
+					break;
+				case 'OR':
+					// ignore dangling OR rule
+					if(i > 0 && i < rules.length - 1) {
+						rsql += ',';
+					}
+					break;
+				case 'NESTED':
+					// do not nest in case of only one nested rule 
+					if(rule.nestedRules.length > 1) {
+						rsql += '(';
+					}
+					// ignore rule without nested rules 
+					if(rule.nestedRules.length > 0) {
+						rsql += createRsqlQuery(rule.nestedRules);
+					}
+					if(rule.nestedRules.length > 1) {
+						rsql += ')';
+					}
+					break;
+				case 'SHOULD':
+					throw 'unsupported query operator [' + rule.operator + ']';
+				case 'DIS_MAX':
+					throw 'unsupported query operator [' + rule.operator + ']';
+				case 'FUZZY_MATCH':
+					throw 'unsupported query operator [' + rule.operator + ']';
+				default:
+					throw 'unknown query operator [' + rule.operator + ']';
+			}
+		}
+		return rsql;
+	};
+	
+	// export
+	molgenis.createRsqlQuery = createRsqlQuery;
+	
+	var createSortValue = function(sort) {
+		var qs = _.map(sort.orders, function(order) {
+			return encodeURIComponent(order.attr) + (order.direction === 'desc' ? ':desc' : '');
+		}).join(','); // do not encode comma
+		return qs; 
+	};
+	
+	molgenis.RestClientV2 = function RestClientV2() {
+	};
+
+	molgenis.RestClientV2.prototype.get = function(resourceUri, options) {
+		if(!resourceUri.startsWith('/api/')) {
+			// assume that resourceUri is a entity name
+			resourceUri = apiBaseUri + htmlEscape(resourceUri);
+		}
+		
+		var qs;
+		if (options) {
+			var items = [];
+			if (options.attrs) {
+				items.push('attrs=' + createAttrsValue(options.attrs));
+			}
+			if(options.q) {
+				if(options.q.length > 0) {
+					items.push('q=' + createRsqlQuery(options.q));
+				}
+			}
+			if(options.sort) {
+				items.push('sort=' + createSortValue(options.sort));
+			}
+			if(options.start !== undefined) {
+				items.push('start=' + options.start);
+			}
+			if(options.num !== undefined) {
+				items.push('num=' + options.num);
+			}
+			qs = items.join('&');
+		} else {
+			qs = null;
+		}
+		
+		if((qs ? resourceUri + '?' + qs : resourceUri).length < 2048) {
+			return $.ajax({
+				method: 'GET',
+				url: qs ? resourceUri + '?' + qs : resourceUri,
+				dataType : 'json',
+				cache : true
+			});
+		} else {
+			// keep URLs under 2048 chars: http://stackoverflow.com/a/417184
+			// tunnel GET request through POST
+			return $.ajax({
+				method: 'POST',
+				url: resourceUri + '?_method=GET',
+				dataType : 'json',
+				contentType: 'application/x-www-form-urlencoded',
+				data: qs,
+				cache : true
+			});
+		}
+	};
+	
+	molgenis.RestClientV2.prototype.remove = function(name, id) {
+		return $.ajax({
+			type : 'DELETE',
+			url : apiBaseUri + encodeURI(name) + '/' + encodeURI(id)
+		});
+	};
 }($, window.top.molgenis = window.top.molgenis || {}));
 
 function showSpinner(callback) {
 	var spinner = $('#spinner');
+	var login = $('#login-modal');
+	
 	if (spinner.length === 0) {
 		// do not add fade effect on modal: http://stackoverflow.com/a/22101894
 		var items = [];
-		items.push('<div class="modal" id="spinner" tabindex="-1" aria-labelledby="spinner-modal-label" aria-hidden="true">');
+		items.push('<div class="modal" id="spinner" aria-labelledby="spinner-modal-label" aria-hidden="true">');
 		items.push('<div class="modal-dialog modal-sm">');
 		items.push('<div class="modal-content">');
 		items.push('<div class="modal-header"><h4 class="modal-title" id="spinner-modal-label">Loading ...</h4></div>');
@@ -607,11 +842,14 @@ function showSpinner(callback) {
 		$('body').append(items.join(''));
 		spinner = $('#spinner');
 		spinner.data('count', 0);
-        spinner.modal({backdrop: 'static'});
+		spinner.modal({
+			backdrop: 'static',
+			show: false
+		});
 	}
-
+	
 	if (callback) {
-		spinner.on('shown.bs.modal', function() {
+		spinner.on('shown.bs.modal', function(e) {
 			callback();
 		});
 	}
@@ -625,6 +863,10 @@ function showSpinner(callback) {
 		$('#spinner').data('count', 1);
 	} else {
 		$('#spinner').data('count', count + 1);
+	}
+	
+	if (login.length > 0) {
+		hideSpinner();
 	}
 }
 
@@ -641,6 +883,54 @@ function hideSpinner() {
 	}
 }
 
+/**
+ * Helper block function container
+ */
+function handleBarHelperBlocks(Handlebars) {
+	Handlebars.registerHelper('equal', function(lvalue, rvalue, options) {
+	    if (arguments.length < 3)
+	        throw new Error("Handlebars Helper equal needs 2 parameters");
+	    if (lvalue != rvalue) {
+	        return options.inverse(this);
+	    } else {
+	        return options.fn(this);
+	    }
+	});
+	
+	Handlebars.registerHelper('notequal', function(lvalue, rvalue, options) {
+	    if (arguments.length < 3)
+	        throw new Error("Handlebars Helper equal needs 2 parameters");
+	    if (lvalue != rvalue) {
+	    	 return options.fn(this);
+	    } else {
+	    	 return options.inverse(this);
+	    }
+	});
+	
+	Handlebars.registerHelper('ifCond', function (v1, operator, v2, options) {
+	    switch (operator) {
+	        case '==':
+	            return (v1 == v2) ? options.fn(this) : options.inverse(this);
+	        case '===':
+	            return (v1 === v2) ? options.fn(this) : options.inverse(this);
+	        case '<':
+	            return (v1 < v2) ? options.fn(this) : options.inverse(this);
+	        case '<=':
+	            return (v1 <= v2) ? options.fn(this) : options.inverse(this);
+	        case '>':
+	            return (v1 > v2) ? options.fn(this) : options.inverse(this);
+	        case '>=':
+	            return (v1 >= v2) ? options.fn(this) : options.inverse(this);
+	        case '&&':
+	            return (v1 && v2) ? options.fn(this) : options.inverse(this);
+	        case '||':
+	            return (v1 || v2) ? options.fn(this) : options.inverse(this);
+	        default:
+	            return options.inverse(this);
+	    }
+	});
+}
+
 $(function() {
 	// disable all ajax request caching
 	$.ajaxSetup({
@@ -650,8 +940,10 @@ $(function() {
 	// use ajaxPrefilter instead of ajaxStart and ajaxStop
 	// to work around issue http://bugs.jquery.com/ticket/13680
 	$.ajaxPrefilter(function(options, _, jqXHR) {
-		showSpinner();
-		jqXHR.always(hideSpinner);
+		if (options.showSpinner !== false) {
+			showSpinner();
+			jqXHR.always(hideSpinner);
+		}
 	});
 
 	$(document)
@@ -704,6 +996,13 @@ $(function() {
 	    setTimeout(function() {
 	        $('.modal-backdrop').not('.modal-stack').css('z-index', zIndex - 1).addClass('modal-stack');
 	    }, 0);
+	});
+	
+	// if modal closes, check if other modal remains open, if so, reapply the modal-open class to the body 
+	$(document).on('hidden.bs.modal', '.modal', function (event) {
+		if( $('.modal:visible').length ) {
+			$('body').addClass('modal-open');
+		}
 	});
 	
 	// focus first input on modal display
@@ -760,9 +1059,151 @@ $(function() {
 		return o;
 	};
 	
+	// Call handleBarHelperBlock function to set helper blocks for entire application
+	handleBarHelperBlocks(Handlebars);
+	
 	// clear datetimepicker on pressing cancel button
 	$(document).on('click', '.clear-date-time-btn', function(e) {
 		$(this).closest('div.date').find('input').val('');
 		$(this).trigger('changeDate');
 	});
 });
+//jQuery Deparam - v0.1.0 - 6/14/2011
+//http://benalman.com/
+//Copyright (c) 2011 Ben Alman; Licensed MIT, GPL
+
+(function($) {
+	// Creating an internal undef value is safer than using undefined, in case it
+	// was ever overwritten.
+	var undef;
+	// A handy reference.
+	var decode = decodeURIComponent;
+
+	// Document $.deparam.
+	var deparam = $.deparam = function(text, reviver) {
+		// The object to be returned.
+		var result = {};
+		// Iterate over all key=value pairs.
+		$.each(text.replace(/\+/g, ' ').split('&'), function(index, pair) {
+			// The key=value pair.
+			var kv = pair.split('=');
+			// The key, URI-decoded.
+			var key = decode(kv[0]);
+			// Abort if there's no key.
+			if (!key) {
+				return;
+			}
+			// The value, URI-decoded. If value is missing, use empty string.
+			var value = decode(kv[1] || '');
+			// If key is more complex than 'foo', like 'a[]' or 'a[b][c]', split it
+			// into its component parts.
+			var keys = key.split('][');
+			var last = keys.length - 1;
+			// Used when key is complex.
+			var i = 0;
+			var current = result;
+
+			// If the first keys part contains [ and the last ends with ], then []
+			// are correctly balanced.
+			if (keys[0].indexOf('[') >= 0 && /\]$/.test(keys[last])) {
+				// Remove the trailing ] from the last keys part.
+				keys[last] = keys[last].replace(/\]$/, '');
+				// Split first keys part into two parts on the [ and add them back onto
+				// the beginning of the keys array.
+				keys = keys.shift().split('[').concat(keys);
+				// Since a key part was added, increment last.
+				last++;
+			} else {
+				// Basic 'foo' style key.
+				last = 0;
+			}
+
+			if ($.isFunction(reviver)) {
+				// If a reviver function was passed, use that function.
+				value = reviver(key, value);
+			} else if (reviver) {
+				// If true was passed, use the built-in $.deparam.reviver function.
+				value = deparam.reviver(key, value);
+			}
+
+			if (last) {
+				// Complex key, like 'a[]' or 'a[b][c]'. At this point, the keys array
+				// might look like ['a', ''] (array) or ['a', 'b', 'c'] (object).
+				for (; i <= last; i++) {
+					// If the current key part was specified, use that value as the array
+					// index or object key. If omitted, assume an array and use the
+					// array's length (effectively an array push).
+					key = keys[i] !== '' ? keys[i] : current.length;
+					if (i < last) {
+						// If not the last key part, update the reference to the current
+						// object/array, creating it if it doesn't already exist AND there's
+						// a next key. If the next key is non-numeric and not empty string,
+						// create an object, otherwise create an array.
+						current = current[key] = current[key] || (isNaN(keys[i + 1]) ? {} : []);
+					} else {
+						// If the last key part, set the value.
+						current[key] = value;
+					}
+				}
+			} else {
+				// Simple key.
+				if ($.isArray(result[key])) {
+					// If the key already exists, and is an array, push the new value onto
+					// the array.
+					result[key].push(value);
+				} else if (key in result) {
+					// If the key already exists, and is NOT an array, turn it into an
+					// array, pushing the new value onto it.
+					result[key] = [ result[key], value ];
+				} else {
+					// Otherwise, just set the value.
+					result[key] = value;
+				}
+			}
+		});
+
+		return result;
+	};
+
+	// Default reviver function, used when true is passed as the second argument
+	// to $.deparam. Don't like it? Pass your own!
+	deparam.reviver = function(key, value) {
+		var specials = {
+			'true' : true,
+			'false' : false,
+			'null' : null,
+			'undefined' : undef
+		};
+
+		return (+value + '') === value ? +value // Number
+		: value in specials ? specials[value] // true, false, null, undefined
+		: value; // String
+	};
+
+}(jQuery));
+// IE9
+if(window.history === undefined)
+	window.history = {};
+if(window.history.pushState === undefined)
+	window.history.pushState = function(){};
+if(window.history.replaceState === undefined)
+	window.history.replaceState = function(){};
+if(window.onpopstate === undefined)
+	window.onpopstate = function(){};
+
+// polyfills
+Number.isInteger = Number.isInteger || function(value) {
+    return typeof value === "number" && 
+           isFinite(value) && 
+           Math.floor(value) === value;
+};
+
+// ECMAScript 6
+if (!String.prototype.startsWith) {
+	String.prototype.startsWith = function(searchString, position) {
+		position = position || 0;
+		return this.lastIndexOf(searchString, position) === position;
+	};
+}
+Number.MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || 9007199254740991;
+Number.MIN_SAFE_INTEGER = Number.MIN_SAFE_INTEGER || -9007199254740991;

@@ -10,10 +10,11 @@
 		        "searchreplace visualblocks code fullscreen",
 		        "insertdatetime table contextmenu paste"
 		    ],
+		    convert_urls: false,
 		    toolbar: "insertfile undo redo | styleselect fontselect fontsizeselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link",
 		    setup : function(ed) {
 	            ed.on('change', function(e) {
-	            	$('#submitBtn').removeProp('disabled');
+	            	$('#submitBtn').prop('disabled', false);
 	            });
             }
 		});

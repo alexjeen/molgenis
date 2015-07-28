@@ -21,7 +21,7 @@ import java.util.Set;
 
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.support.MapEntity;
-
+import org.molgenis.data.Entity;
 
 /**
  * ${Name(entity)}: ${entity.description}.
@@ -102,16 +102,7 @@ public class ${JavaName(entity)} extends <#if entity.hasAncestor()>${entity.getA
 	//${field.description}[type=${field.type}]
 	<#if !isPrimaryKey(field,entity) || !entity.hasAncestor()>
  			<#if isPrimaryKey(field,entity) && !entity.hasAncestor()>
-    			<#if field.auto = true>
-	    			<#if jpa_use_sequence >
-	@javax.persistence.SequenceGenerator(name="${JavaName(entity)}_Gen", sequenceName="${JavaName(entity)}_Seq"<#if entity.allocationSize??>, allocationSize=${entity.allocationSize?c}</#if>)
-    @javax.persistence.Id @javax.persistence.GeneratedValue(generator="${JavaName(entity)}_Gen", strategy=javax.persistence.GenerationType.SEQUENCE)		
-    				<#else>
-    @javax.persistence.Id @javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.AUTO)
-    				</#if>   			
-    			<#else>
-    			@Id
-    			</#if>
+  				@javax.persistence.Id  
     		</#if>
 		</#if>	
 
@@ -349,7 +340,7 @@ public class ${JavaName(entity)} extends <#if entity.hasAncestor()>${entity.getA
 
 <#if !entity.abstract>	
 	@Override
-	public Integer getIdValue()
+	public String getIdValue()
 	{
 		return get${JavaName(pkey(entity))}();
 	}		
@@ -393,16 +384,6 @@ public class ${JavaName(entity)} extends <#if entity.hasAncestor()>${entity.getA
 
 		return attributeNames;
 	}
-	
-	@Override
-	public java.util.List<String> getLabelAttributeNames()
-	{
-		java.util.List<String> result = new java.util.ArrayList<String>();
-		<#if entity.getXrefLabels()?exists><#list entity.getXrefLabels() as label>
-		result.add("${label}");
-		</#list></#if>
-		return result;
-	}
 
 	@Override
 	public void set(String attributeName, Object value)
@@ -410,7 +391,11 @@ public class ${JavaName(entity)} extends <#if entity.hasAncestor()>${entity.getA
 <#list allFields(entity) as f>
 		if("${f.name}".equalsIgnoreCase(attributeName)) {
 		<#assign type_label = f.getType().toString()>
-			this.set${JavaName(f)}((<#if f.type == "categorical" || f.type == "xref">${f.xrefEntity.namespace}.${JavaName(f.xrefEntity)}<#elseif f.type="mref">List<${f.xrefEntity.namespace}.${JavaName(f.xrefEntity)}><#else>${f.type.javaPropertyType}</#if>) value); 
+			<#if f.type == "categorical" || f.type == "xref">
+			${f.xrefEntity.namespace}.${JavaName(f.xrefEntity)} e = new ${f.xrefEntity.namespace}.${JavaName(f.xrefEntity)}();
+			e.set((Entity)value);
+			</#if>
+			this.set${JavaName(f)}(<#if f.type == "categorical" || f.type == "xref">e<#elseif f.type="mref">(List<${f.xrefEntity.namespace}.${JavaName(f.xrefEntity)}>)value<#else>(${f.type.javaPropertyType})value</#if>); 
 			<#--
 		<#if f.type == "mref">
 			this.set${JavaName(f)}(value);

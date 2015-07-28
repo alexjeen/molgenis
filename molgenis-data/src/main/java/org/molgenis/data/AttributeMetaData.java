@@ -80,7 +80,16 @@ public interface AttributeMetaData
 	EntityMetaData getRefEntity();
 
 	/**
-	 * Get compound attribute parts
+	 * Expression used to compute this attribute.
+	 * 
+	 * @return String representation of expression, in JSON format
+	 */
+	String getExpression();
+
+	/**
+	 * When getDataType=compound, get compound attribute parts
+	 * 
+	 * @return Iterable of attributes or empty Iterable if no attribute parts exist
 	 */
 	Iterable<AttributeMetaData> getAttributeParts();
 
@@ -99,6 +108,16 @@ public interface AttributeMetaData
 	 * For enum fields returns the posible enum values
 	 */
 	List<String> getEnumOptions();
+
+	/**
+	 * Javascript expression to determine at runtime if the attribute must be visible or not in the form
+	 */
+	String getVisibleExpression();
+
+	/**
+	 * Javascript expression to validate the value of the attribute
+	 */
+	String getValidationExpression();
 
 	boolean isSameAs(AttributeMetaData attributeMetaData);
 }

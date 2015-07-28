@@ -1,12 +1,16 @@
 package org.molgenis.data.support;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.Entity;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.util.CaseInsensitiveLinkedHashMap;
+
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 
 /**
  * Simple Entity implementation based on a Map
@@ -14,6 +18,7 @@ import org.molgenis.util.CaseInsensitiveLinkedHashMap;
 public class MapEntity extends AbstractEntity
 {
 	private static final long serialVersionUID = -8283375007931769373L;
+	private EntityMetaData entityMetaData;
 	private Map<String, Object> values = new CaseInsensitiveLinkedHashMap<Object>();
 	private String idAttributeName = null;
 
@@ -24,6 +29,11 @@ public class MapEntity extends AbstractEntity
 	public MapEntity(Entity other)
 	{
 		set(other);
+	}
+
+	public MapEntity(Entity other, EntityMetaData metaData)
+	{
+		set(other, metaData);
 	}
 
 	public MapEntity(String idAttributeName)
@@ -41,6 +51,28 @@ public class MapEntity extends AbstractEntity
 		values.put(attributeName, value);
 	}
 
+	public MapEntity(EntityMetaData metaData)
+	{
+		this.entityMetaData = metaData;
+		this.idAttributeName = entityMetaData.getIdAttribute().getName();
+	}
+
+	public void set(Entity other, EntityMetaData metaData)
+	{
+		this.entityMetaData = metaData;
+		this.idAttributeName = entityMetaData.getIdAttribute().getName();
+		List<String> otherAttributes = new ArrayList<>();
+		for (AttributeMetaData attributeMetaData : other.getEntityMetaData().getAtomicAttributes())
+		{
+			otherAttributes.add(attributeMetaData.getName());
+		}
+		for (AttributeMetaData attribute : metaData.getAtomicAttributes())
+		{
+			if (Iterables.contains(otherAttributes, attribute.getName())) set(attribute.getName(),
+					other.get(attribute.getName()));
+		}
+	}
+
 	@Override
 	public Object get(String attributeName)
 	{
@@ -54,7 +86,7 @@ public class MapEntity extends AbstractEntity
 	}
 
 	@Override
-	public void set(Entity other, boolean strict)
+	public void set(Entity other)
 	{
 		for (String attributeName : other.getAttributeNames())
 		{
@@ -87,19 +119,59 @@ public class MapEntity extends AbstractEntity
 	@Override
 	public Iterable<String> getAttributeNames()
 	{
+		if (entityMetaData != null)
+		{
+			return Iterables.transform(entityMetaData.getAttributes(), new Function<AttributeMetaData, String>()
+			{
+				@Override
+				public String apply(AttributeMetaData input)
+				{
+					return input.getName();
+				}
+			});
+		}
 		return values.keySet();
-	}
-
-	@Override
-	public List<String> getLabelAttributeNames()
-	{
-		return Collections.emptyList();
 	}
 
 	@Override
 	public EntityMetaData getEntityMetaData()
 	{
-		return null;
+		return entityMetaData;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((entityMetaData == null) ? 0 : entityMetaData.hashCode());
+		result = prime * result + ((idAttributeName == null) ? 0 : idAttributeName.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj) return true;
+		if (obj == null) return false;
+		if (getClass() != obj.getClass()) return false;
+		MapEntity other = (MapEntity) obj;
+		if (entityMetaData == null)
+		{
+			if (other.entityMetaData != null) return false;
+		}
+		else if (!entityMetaData.equals(other.entityMetaData)) return false;
+		if (idAttributeName == null)
+		{
+			if (other.idAttributeName != null) return false;
+		}
+		else if (!idAttributeName.equals(other.idAttributeName)) return false;
+		if (values == null)
+		{
+			if (other.values != null) return false;
+		}
+		else if (!values.equals(other.values)) return false;
+		return true;
 	}
 
 }

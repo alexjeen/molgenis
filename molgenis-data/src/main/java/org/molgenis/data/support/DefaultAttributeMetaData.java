@@ -1,7 +1,11 @@
 package org.molgenis.data.support;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.molgenis.MolgenisFieldTypes;
 import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
@@ -23,7 +27,7 @@ import com.google.common.collect.Lists;
  */
 public class DefaultAttributeMetaData implements AttributeMetaData
 {
-	private final String name;
+	private String name;
 	private FieldType fieldType = MolgenisFieldTypes.STRING;
 	private String description;
 	private boolean nillable = true;
@@ -33,13 +37,16 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 	private boolean labelAttribute = false; // remove?
 	private boolean lookupAttribute = false; // remove?
 	private EntityMetaData refEntity;
+	private String expression;
 	private String label;
 	private boolean visible = true; // remove?
 	private boolean unique = false;
 	private boolean auto = false;
-	private Iterable<AttributeMetaData> attributesMetaData;
+	private List<AttributeMetaData> attributesMetaData;
 	private boolean aggregateable = false;
 	private Range range;
+	private String visibleExpression;
+	private String validationExpression;
 
 	public DefaultAttributeMetaData(String name, FieldTypeEnum fieldType)
 	{
@@ -54,6 +61,12 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		if (name == null) throw new IllegalArgumentException("Name cannot be null");
 		this.name = name;
 		this.fieldType = MolgenisFieldTypes.STRING;
+	}
+
+	public DefaultAttributeMetaData(String newName, AttributeMetaData attributeMetaData)
+	{
+		this(attributeMetaData);
+		this.name = newName;
 	}
 
 	/**
@@ -74,12 +87,15 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		this.lookupAttribute = attributeMetaData.isLookupAttribute();
 		EntityMetaData refEntity = attributeMetaData.getRefEntity();
 		this.refEntity = refEntity != null ? new DefaultEntityMetaData(refEntity) : null; // deep copy
+		this.expression = attributeMetaData.getExpression();
 		this.label = attributeMetaData.getLabel();
 		this.visible = attributeMetaData.isVisible();
 		this.unique = attributeMetaData.isUnique();
 		this.auto = attributeMetaData.isAuto();
 		this.aggregateable = attributeMetaData.isAggregateable();
 		this.range = attributeMetaData.getRange();
+		this.visibleExpression = attributeMetaData.getVisibleExpression();
+		this.validationExpression = attributeMetaData.getValidationExpression();
 
 		// deep copy
 		Iterable<AttributeMetaData> attributeParts = attributeMetaData.getAttributeParts();
@@ -106,9 +122,10 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		return description;
 	}
 
-	public void setDescription(String description)
+	public DefaultAttributeMetaData setDescription(String description)
 	{
 		this.description = description;
+		return this;
 	}
 
 	@Override
@@ -138,6 +155,11 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 	@Override
 	public boolean isReadonly()
 	{
+		if (idAttribute)
+		{
+			readOnly = true;
+		}
+
 		return readOnly;
 	}
 
@@ -152,6 +174,10 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		if (getDataType() instanceof XrefField || getDataType() instanceof MrefField
 				|| getDataType() instanceof CategoricalField)
 		{
+			if (getExpression() != null)
+			{
+				return null;
+			}
 			if (getRefEntity() == null) throw new MolgenisDataException("refEntity is missing for " + getName());
 			if (getRefEntity().getIdAttribute() == null) throw new MolgenisDataException(
 					"idAttribute is missing for entity [" + getRefEntity().getName() + "]");
@@ -162,9 +188,10 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		return getDataType().convert(defaultValue);
 	}
 
-	public void setDefaultValue(Object defaultValue)
+	public DefaultAttributeMetaData setDefaultValue(Object defaultValue)
 	{
 		this.defaultValue = defaultValue;
+		return this;
 	}
 
 	@Override
@@ -176,12 +203,6 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 	public DefaultAttributeMetaData setIdAttribute(boolean idAttribute)
 	{
 		this.idAttribute = idAttribute;
-		if (idAttribute)
-		{
-			unique = true;
-			readOnly = true;
-		}
-
 		return this;
 	}
 
@@ -210,18 +231,35 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 	}
 
 	@Override
-	public Iterable<AttributeMetaData> getAttributeParts()
+	public String getExpression()
 	{
-		if (this.attributesMetaData == null && this.getRefEntity() != null)
-		{
-			return this.refEntity.getAttributes();
-		}
-		return attributesMetaData;
+		return expression;
 	}
 
-	public void setAttributesMetaData(Iterable<AttributeMetaData> attributesMetaData)
+	public DefaultAttributeMetaData setExpression(String expression)
 	{
-		this.attributesMetaData = attributesMetaData;
+		this.expression = expression;
+		return this;
+	}
+
+	@Override
+	public Iterable<AttributeMetaData> getAttributeParts()
+	{
+		return this.attributesMetaData != null ? this.attributesMetaData : Collections.<AttributeMetaData> emptyList();
+	}
+
+	public void addAttributePart(AttributeMetaData attributePart)
+	{
+		if (this.attributesMetaData == null)
+		{
+			this.attributesMetaData = new ArrayList<AttributeMetaData>();
+		}
+		this.attributesMetaData.add(attributePart);
+	}
+
+	public void setAttributesMetaData(Iterable<AttributeMetaData> attributeParts)
+	{
+		this.attributesMetaData = Lists.newArrayList(attributeParts);
 	}
 
 	@Override
@@ -251,6 +289,11 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 	@Override
 	public boolean isUnique()
 	{
+		if (idAttribute)
+		{
+			unique = true;
+		}
+
 		return unique;
 	}
 
@@ -301,9 +344,10 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		return this.aggregateable;
 	}
 
-	public void setAggregateable(boolean aggregateable)
+	public DefaultAttributeMetaData setAggregateable(boolean aggregateable)
 	{
 		this.aggregateable = aggregateable;
+		return this;
 	}
 
 	@Override
@@ -336,6 +380,30 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 			((EnumField) fieldType).setEnumOptions(enumOptions);
 		}
 
+		return this;
+	}
+
+	@Override
+	public String getVisibleExpression()
+	{
+		return this.visibleExpression;
+	}
+
+	public DefaultAttributeMetaData setVisibleExpression(String visibleExpression)
+	{
+		this.visibleExpression = visibleExpression;
+		return this;
+	}
+
+	@Override
+	public String getValidationExpression()
+	{
+		return validationExpression;
+	}
+
+	public DefaultAttributeMetaData setValidationExpression(String validationExpression)
+	{
+		this.validationExpression = validationExpression;
 		return this;
 	}
 
@@ -423,15 +491,37 @@ public class DefaultAttributeMetaData implements AttributeMetaData
 		if (isVisible() != other.isVisible()) return false;
 
 		// attributeparts
-		if (getAttributeParts() == null)
+		Iterator<AttributeMetaData> attributeParts = getAttributeParts().iterator();
+		Iterator<AttributeMetaData> otherAttributeParts = other.getAttributeParts().iterator();
+		Map<String, AttributeMetaData> otherAttributePartsMap = new HashMap<String, AttributeMetaData>();
+		while (otherAttributeParts.hasNext())
 		{
-			if (other.getAttributeParts() != null) return false;
+			AttributeMetaData otherAttributePart = otherAttributeParts.next();
+			otherAttributePartsMap.put(otherAttributePart.getName(), otherAttributePart);
 		}
-		else
+		while (attributeParts.hasNext())
 		{
-			if (other.getAttributeParts() == null) return false;
-			if (!Lists.newArrayList(getAttributeParts()).equals(Lists.newArrayList(other.getAttributeParts()))) return false;
+			AttributeMetaData attributePart = attributeParts.next();
+			if (!attributePart.isSameAs(otherAttributePartsMap.get(attributePart.getName())))
+			{
+				return false;
+			}
+			else
+			{
+				otherAttributePartsMap.remove(attributePart.getName());
+			}
 		}
+		if (otherAttributePartsMap.size() > 0) return false;
+		if (getVisibleExpression() == null)
+		{
+			if (other.getVisibleExpression() != null) return false;
+		}
+		else if (!getVisibleExpression().equals(other.getVisibleExpression())) return false;
+		if (getValidationExpression() == null)
+		{
+			if (other.getValidationExpression() != null) return false;
+		}
+		else if (!getValidationExpression().equals(other.getValidationExpression())) return false;
 
 		return true;
 	}

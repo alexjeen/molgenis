@@ -8,8 +8,11 @@ import org.molgenis.MolgenisFieldTypes.FieldTypeEnum;
 import org.molgenis.data.AttributeMetaData;
 import org.molgenis.data.EntityMetaData;
 import org.molgenis.data.MolgenisDataException;
+import org.molgenis.data.Package;
 import org.molgenis.data.Range;
 import org.molgenis.fieldtypes.FieldType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
@@ -17,6 +20,8 @@ import com.google.common.collect.TreeTraverser;
 
 public abstract class AbstractEntityMetaData implements EntityMetaData
 {
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractEntityMetaData.class);
+
 	private String labelAttribute;
 	private String idAttribute;
 
@@ -82,6 +87,12 @@ public abstract class AbstractEntityMetaData implements EntityMetaData
 
 			@Override
 			public EntityMetaData getRefEntity()
+			{
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public String getExpression()
 			{
 				throw new UnsupportedOperationException();
 			}
@@ -157,6 +168,18 @@ public abstract class AbstractEntityMetaData implements EntityMetaData
 			{
 				throw new UnsupportedOperationException();
 			}
+
+			@Override
+			public String getVisibleExpression()
+			{
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public String getValidationExpression()
+			{
+				throw new UnsupportedOperationException();
+			}
 		}).skip(1);
 	}
 
@@ -171,6 +194,25 @@ public abstract class AbstractEntityMetaData implements EntityMetaData
 				return attributeMetaData.getDataType().getEnumType() != FieldTypeEnum.COMPOUND;
 			}
 		});
+	}
+
+	/**
+	 * Gets the fully qualified name of this EntityMetaData.
+	 */
+	@Override
+	public String getName()
+	{
+		StringBuilder sb = new StringBuilder();
+
+		Package p = getPackage();
+		if (p != null && !Package.DEFAULT_PACKAGE_NAME.equals(p.getName()))
+		{
+			sb.append(p.getName());
+			sb.append(Package.PACKAGE_SEPARATOR);
+		}
+		sb.append(getSimpleName());
+
+		return sb.toString();
 	}
 
 	@Override
@@ -199,9 +241,11 @@ public abstract class AbstractEntityMetaData implements EntityMetaData
 			{
 				idAttributeMetaData = getExtends().getIdAttribute();
 			}
-			if (idAttributeMetaData == null)
+			if (idAttributeMetaData == null && !isAbstract())
 			{
-				new RuntimeException("No idAttribute specified, this attribute is required");
+				LOG.error("No idAttribute specified for entity{}, this attribute is required", getName());
+				// FIXME enable exception when https://github.com/molgenis/molgenis/issues/1400 is fixed
+				// throw new RuntimeException("No idAttribute specified, this attribute is required");
 			}
 		}
 		return idAttributeMetaData;
@@ -235,6 +279,19 @@ public abstract class AbstractEntityMetaData implements EntityMetaData
 		}
 
 		return getIdAttribute();
+	}
+
+	@Override
+	public Iterable<AttributeMetaData> getLookupAttributes()
+	{
+		return Iterables.filter(getAttributesTraverser(), new Predicate<AttributeMetaData>()
+		{
+			@Override
+			public boolean apply(AttributeMetaData attribute)
+			{
+				return attribute.isLookupAttribute();
+			}
+		});
 	}
 
 	public void setLabelAttribute(String name)
